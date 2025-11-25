@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or mysql
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                String   @id @default(uuid())
+  name              String
+  registrationNumber String  @unique
+  address           String
+  contactNumber     String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Payroll Settings
+  employeeEPFPercentage Float   @default(8.0)
+  employerEPFPercentage Float   @default(12.0)
+  etfPercentage         Float   @default(3.0)
+  salaryType            SalaryType @default(MONTHLY)
+
+  // Relations
+  users     User[]
+  employees Employee[]
+  salaries  Salary[]
+}
+
+enum SalaryType {
+  DAILY
+  MONTHLY
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Employee {
+  id        String   @id @default(uuid())
+  fullName  String
+  address   String
+  nic       String   @unique
+  employeeId String // Internal ID given by company
+  contactNumber String
+  
+  // Employment Details
+  joinedDate    DateTime
+  designation   String
+  department    String
+
+  // Salary Details
+  dailyRate     Float    @default(0)
+  otRate        Float    @default(0)
+  
+  // Allowances (Fixed)
+  transportAllowance Float @default(0)
+  mealAllowance      Float @default(0)
+  otherAllowance     Float @default(0)
+
+  // EPF Settings
+  epfEnabled    Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+  salaries  Salary[]
+
+  @@unique([companyId, employeeId]) // Employee ID must be unique within a company
+}
+
+model Salary {
+  id        String   @id @default(uuid())
+  month     Int      // 1-12
+  year      Int
+  
+  // Inputs
+  workingDays Int
+  otHours     Float
+  bonus       Float @default(0)
+
+  // Calculated Values
+  basicPay          Float
+  otAmount          Float
+  totalAllowances   Float
+  grossSalary       Float
+  
+  employeeEPF       Float
+  employerEPF       Float
+  etfAmount         Float
+  
+  netSalary         Float
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id])
+}
