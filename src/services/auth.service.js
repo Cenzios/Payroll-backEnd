@@ -1,6 +1,5 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/db');
-const { generateToken } = require('../utils/tokenUtils');
 
 const registerCompany = async (data) => {
     const {
@@ -62,13 +61,7 @@ const registerCompany = async (data) => {
         return { company, user };
     });
 
-    const token = generateToken({
-        userId: result.user.id,
-        companyId: result.company.id,
-        role: result.user.role,
-    });
-
-    return { token, user: result.user, company: result.company };
+    return { user: result.user, company: result.company };
 };
 
 const login = async (email, password) => {
@@ -85,13 +78,7 @@ const login = async (email, password) => {
         throw new Error('Invalid credentials');
     }
 
-    const token = generateToken({
-        userId: user.id,
-        companyId: user.companyId,
-        role: user.role,
-    });
-
-    return { token, user };
+    return { user };
 };
 
 module.exports = {
