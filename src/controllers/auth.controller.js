@@ -1,10 +1,23 @@
 const authService = require('../services/auth.service');
 const sendResponse = require('../utils/responseHandler');
+const { generateToken } = require('../utils/tokenUtils');
 
 const register = async (req, res, next) => {
     try {
         const result = await authService.registerCompany(req.body);
-        sendResponse(res, 201, true, 'Company registered successfully', result);
+
+        // Generate token for registered user
+        const token = generateToken({
+            userId: result.user.id,
+            companyId: result.user.companyId,
+            role: result.user.role
+        });
+
+        sendResponse(res, 201, true, 'Company registered successfully', {
+            user: result.user,
+            company: result.company,
+            token: token
+        });
     } catch (error) {
         next(error);
     }
