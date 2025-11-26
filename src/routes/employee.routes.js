@@ -3,9 +3,11 @@ const router = express.Router();
 const employeeController = require('../controllers/employee.controller');
 const { createEmployeeValidation, updateEmployeeValidation } = require('../validations/employee.validation');
 const validate = require('../middlewares/validateRequest');
+const { protect } = require('../middlewares/authMiddleware');
 
 
-// router.use(protect);
+// Protect all employee routes
+router.use(protect);
 
 router.post('/', createEmployeeValidation, validate, employeeController.create);
 router.get('/', employeeController.getAll);

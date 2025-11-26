@@ -30,9 +30,9 @@ const getEmployees = async (companyId, page = 1, limit = 10, search = '') => {
     const where = {
         companyId,
         OR: [
-            { fullName: { contains: search, mode: 'insensitive' } },
-            { employeeId: { contains: search, mode: 'insensitive' } },
-            { nic: { contains: search, mode: 'insensitive' } },
+            { fullName: { contains: search } },
+            { employeeId: { contains: search } },
+            { nic: { contains: search } },
         ]
     };
 
