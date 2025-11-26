@@ -3,7 +3,9 @@ const sendResponse = require('../utils/responseHandler');
 
 const getProfile = async (req, res, next) => {
     try {
-        const companyId = "1"; // Placeholder
+        // Get companyId from authenticated user
+        const companyId = req.user.companyId;
+
         const company = await companyService.getCompanyProfile(companyId);
         if (!company) {
             return sendResponse(res, 404, false, 'Company not found');
@@ -16,7 +18,8 @@ const getProfile = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
     try {
-        const companyId = "1"; // Placeholder
+        const companyId = req.user.companyId;
+
         const company = await companyService.updateCompanyProfile(companyId, req.body);
         sendResponse(res, 200, true, 'Company profile updated', company);
     } catch (error) {
