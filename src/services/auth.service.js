@@ -58,7 +58,10 @@ const registerCompany = async (data) => {
             },
         });
 
-        return { company, user };
+        // Remove password before returning
+        const { password: _, ...userWithoutPassword } = user;
+
+        return { company, user: userWithoutPassword };
     });
 
     return { user: result.user, company: result.company };
@@ -78,7 +81,10 @@ const login = async (email, password) => {
         throw new Error('Invalid credentials');
     }
 
-    return { user };
+    // Remove password from user object before returning
+    const { password: _, ...userWithoutPassword } = user;
+
+    return { user: userWithoutPassword };
 };
 
 module.exports = {

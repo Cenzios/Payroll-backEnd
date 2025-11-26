@@ -27,9 +27,19 @@ const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
         const result = await authService.login(email, password);
-        sendResponse(res, 200, true, 'Login successful', result);
+
+        // Generate JWT token
+        const token = generateToken({
+            userId: result.user.id,
+            companyId: result.user.companyId,
+            role: result.user.role
+        });
+
+        sendResponse(res, 200, true, 'Login successful', {
+            user: result.user,
+            token: token
+        });
     } catch (error) {
-        // For security, don't expose exact error in production usually, but here we pass message
         if (error.message === 'Invalid credentials') {
             return sendResponse(res, 401, false, error.message);
         }
