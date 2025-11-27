@@ -1,28 +1,15 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/db');
 
-const registerCompany = async (data) => {
+const registerUser = async (data) => {
     const {
-        companyName,
-        registrationNumber,
-        address,
-        contactNumber,
+        name,
         email,
         password,
-        employeeEPFPercentage,
-        employerEPFPercentage,
-        etfPercentage,
-        salaryType,
+        planId,
     } = data;
 
-    // Check if company or user already exists
-    const existingCompany = await prisma.company.findUnique({
-        where: { registrationNumber },
-    });
-    if (existingCompany) {
-        throw new Error('Company with this registration number already exists');
-    }
-
+    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
         where: { email },
     });
@@ -30,41 +17,46 @@ const registerCompany = async (data) => {
         throw new Error('User with this email already exists');
     }
 
+    // Verify plan exists
+    const plan = await prisma.plan.findUnique({
+        where: { id: planId },
+    });
+    if (!plan) {
+        throw new Error('Invalid plan selected');
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Transaction to create Company and Admin User
+    // Transaction to create User and Subscription
     const result = await prisma.$transaction(async (prisma) => {
-        const company = await prisma.company.create({
-            data: {
-                name: companyName,
-                registrationNumber,
-                address,
-                contactNumber,
-                employeeEPFPercentage: employeeEPFPercentage || 8.0,
-                employerEPFPercentage: employerEPFPercentage || 12.0,
-                etfPercentage: etfPercentage || 3.0,
-                salaryType: salaryType || 'MONTHLY',
-            },
-        });
-
         const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
-                role: 'ADMIN',
-                companyId: company.id,
+                role: 'ADMIN', // Default role for new signups
+            },
+        });
+
+        // Create Subscription
+        const subscription = await prisma.subscription.create({
+            data: {
+                userId: user.id,
+                planId: plan.id,
+                status: 'ACTIVE',
+                startDate: new Date(),
+                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Default 1 year
             },
         });
 
         // Remove password before returning
         const { password: _, ...userWithoutPassword } = user;
 
-        return { company, user: userWithoutPassword };
+        return { user: userWithoutPassword, plan, subscription };
     });
 
-    return { user: result.user, company: result.company };
+    return result;
 };
 
 const login = async (email, password) => {
@@ -88,6 +80,6 @@ const login = async (email, password) => {
 };
 
 module.exports = {
-    registerCompany,
+    registerUser,
     login,
 };

@@ -1,12 +1,99 @@
 const prisma = require('../config/db');
 
-const getCompanyProfile = async (companyId) => {
-    return await prisma.company.findUnique({
-        where: { id: companyId },
+const createCompany = async (userId, data) => {
+    // 1. Get User's Active Subscription & Plan
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'ACTIVE',
+        },
+        include: { plan: true },
+    });
+
+    if (!subscription) {
+        throw new Error('No active subscription found. Please upgrade your plan.');
+    }
+
+    // 2. Count existing companies
+    const companyCount = await prisma.company.count({
+        where: { ownerId: userId },
+    });
+
+    // 3. Check Limit
+    if (companyCount >= subscription.plan.maxCompanies) {
+        throw new Error(`Company limit reached (${subscription.plan.maxCompanies}). Upgrade your plan to add more companies.`);
+    }
+
+    // 4. Create Company
+    const {
+        name,
+        registrationNumber,
+        address,
+        contactNumber,
+        employeeEPFPercentage,
+        employerEPFPercentage,
+        etfPercentage,
+        salaryType,
+    } = data;
+
+    // Check for duplicate registration number
+    const existing = await prisma.company.findUnique({
+        where: { registrationNumber },
+    });
+    if (existing) {
+        throw new Error('Company with this registration number already exists');
+    }
+
+    return await prisma.company.create({
+        data: {
+            name,
+            registrationNumber,
+            address,
+            contactNumber,
+            employeeEPFPercentage: employeeEPFPercentage || 8.0,
+            employerEPFPercentage: employerEPFPercentage || 12.0,
+            etfPercentage: etfPercentage || 3.0,
+            salaryType: salaryType || 'MONTHLY',
+            ownerId: userId,
+        },
     });
 };
 
-const updateCompanyProfile = async (companyId, data) => {
+const getCompanies = async (userId) => {
+    return await prisma.company.findMany({
+        where: { ownerId: userId },
+    });
+};
+
+const getCompanyProfile = async (userId, companyId) => {
+    const company = await prisma.company.findUnique({
+        where: { id: companyId },
+    });
+
+    if (!company) {
+        return null;
+    }
+
+    if (company.ownerId !== userId) {
+        throw new Error('Not authorized to view this company');
+    }
+
+    return company;
+};
+
+const updateCompanyProfile = async (userId, companyId, data) => {
+    const company = await prisma.company.findUnique({
+        where: { id: companyId },
+    });
+
+    if (!company) {
+        throw new Error('Company not found');
+    }
+
+    if (company.ownerId !== userId) {
+        throw new Error('Not authorized to update this company');
+    }
+
     return await prisma.company.update({
         where: { id: companyId },
         data: data,
@@ -14,6 +101,8 @@ const updateCompanyProfile = async (companyId, data) => {
 };
 
 module.exports = {
+    createCompany,
+    getCompanies,
     getCompanyProfile,
     updateCompanyProfile,
 };

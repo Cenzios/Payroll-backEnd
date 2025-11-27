@@ -10,6 +10,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Plan {
+  id            String   @id @default(uuid())
+  name          String   // Free, Professional, Enterprise
+  price         Float
+  maxEmployees  Int
+  maxCompanies  Int
+  features      Json
+  createdAt     DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  planId    String
+  status    String   // ACTIVE, EXPIRED, CANCELLED
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+}
+
 model Company {
   id                String   @id @default(uuid())
   name              String
@@ -26,7 +51,8 @@ model Company {
   salaryType            SalaryType @default(MONTHLY)
 
   // Relations
-  users     User[]
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
   employees Employee[]
   salaries  Salary[]
 }
@@ -45,8 +71,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id])
+  subscriptions Subscription[]
+  companies     Company[]
 }
 
 enum Role {

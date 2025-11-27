@@ -9,6 +9,8 @@ const authRoutes = require('./routes/auth.routes');
 const companyRoutes = require('./routes/company.routes');
 const employeeRoutes = require('./routes/employee.routes');
 const salaryRoutes = require('./routes/salary.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/company', companyRoutes);
 app.use('/api/v1/employees', employeeRoutes);
 app.use('/api/v1/salary', salaryRoutes);
+app.use('/api/v1/subscription', subscriptionRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

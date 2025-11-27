@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.0",
-    "prisma": "^7.0.0"
+    "prisma": "^5.22.0"
   },
   "repository": {
     "type": "git",

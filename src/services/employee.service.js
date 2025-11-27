@@ -1,7 +1,38 @@
 const prisma = require('../config/db');
 
-const createEmployee = async (companyId, data) => {
-    // Check for duplicate NIC or EmployeeID within company
+const createEmployee = async (userId, companyId, data) => {
+    // 1. Verify Company Ownership
+    const company = await prisma.company.findFirst({
+        where: { id: companyId, ownerId: userId },
+    });
+    if (!company) {
+        throw new Error('Company not found or you do not have permission to access it');
+    }
+
+    // 2. Get User's Active Subscription & Plan
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'ACTIVE',
+        },
+        include: { plan: true },
+    });
+
+    if (!subscription) {
+        throw new Error('No active subscription found. Please upgrade your plan.');
+    }
+
+    // 3. Count existing employees in this company
+    const employeeCount = await prisma.employee.count({
+        where: { companyId },
+    });
+
+    // 4. Check Limit
+    if (employeeCount >= subscription.plan.maxEmployees) {
+        throw new Error(`Employee limit reached (${subscription.plan.maxEmployees}). Upgrade your plan to add more employees.`);
+    }
+
+    // 5. Check for duplicate NIC or EmployeeID within company
     const existing = await prisma.employee.findFirst({
         where: {
             companyId,
@@ -24,7 +55,15 @@ const createEmployee = async (companyId, data) => {
     });
 };
 
-const getEmployees = async (companyId, page = 1, limit = 10, search = '') => {
+const getEmployees = async (userId, companyId, page = 1, limit = 10, search = '') => {
+    // Verify Ownership
+    const company = await prisma.company.findFirst({
+        where: { id: companyId, ownerId: userId },
+    });
+    if (!company) {
+        throw new Error('Company not found or you do not have permission to access it');
+    }
+
     const skip = (page - 1) * limit;
 
     const where = {
@@ -49,13 +88,29 @@ const getEmployees = async (companyId, page = 1, limit = 10, search = '') => {
     return { employees, total, page, totalPages: Math.ceil(total / limit) };
 };
 
-const getEmployeeById = async (companyId, id) => {
+const getEmployeeById = async (userId, companyId, id) => {
+    // Verify Ownership
+    const company = await prisma.company.findFirst({
+        where: { id: companyId, ownerId: userId },
+    });
+    if (!company) {
+        throw new Error('Company not found or you do not have permission to access it');
+    }
+
     return await prisma.employee.findFirst({
         where: { id, companyId },
     });
 };
 
-const updateEmployee = async (companyId, id, data) => {
+const updateEmployee = async (userId, companyId, id, data) => {
+    // Verify Ownership
+    const company = await prisma.company.findFirst({
+        where: { id: companyId, ownerId: userId },
+    });
+    if (!company) {
+        throw new Error('Company not found or you do not have permission to access it');
+    }
+
     // Ensure employee belongs to company
     const employee = await prisma.employee.findFirst({
         where: { id, companyId },
@@ -71,7 +126,15 @@ const updateEmployee = async (companyId, id, data) => {
     });
 };
 
-const deleteEmployee = async (companyId, id) => {
+const deleteEmployee = async (userId, companyId, id) => {
+    // Verify Ownership
+    const company = await prisma.company.findFirst({
+        where: { id: companyId, ownerId: userId },
+    });
+    if (!company) {
+        throw new Error('Company not found or you do not have permission to access it');
+    }
+
     const employee = await prisma.employee.findFirst({
         where: { id, companyId },
     });

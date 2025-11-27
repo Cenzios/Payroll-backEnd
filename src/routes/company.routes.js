@@ -8,7 +8,9 @@ const { protect } = require('../middlewares/authMiddleware');
 // Protect all company routes
 router.use(protect);
 
-router.get('/profile', companyController.getProfile);
-router.put('/profile', updateCompanyValidation, validate, companyController.updateProfile);
+router.post('/', companyController.create);
+router.get('/', companyController.getAll);
+router.get('/:id', companyController.getProfile);
+router.put('/:id', updateCompanyValidation, validate, companyController.updateProfile);
 
 module.exports = router;
