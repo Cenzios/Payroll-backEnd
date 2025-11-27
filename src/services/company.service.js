@@ -36,13 +36,7 @@ const createCompany = async (userId, data) => {
         salaryType,
     } = data;
 
-    // Check for duplicate registration number
-    const existing = await prisma.company.findUnique({
-        where: { registrationNumber },
-    });
-    if (existing) {
-        throw new Error('Company with this registration number already exists');
-    }
+
 
     return await prisma.company.create({
         data: {

@@ -38,7 +38,7 @@ model Subscription {
 model Company {
   id                String   @id @default(uuid())
   name              String
-  registrationNumber String  @unique
+  registrationNumber String?  @unique
   address           String
   contactNumber     String
   createdAt         DateTime @default(now())

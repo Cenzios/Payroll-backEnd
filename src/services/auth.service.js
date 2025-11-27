@@ -3,7 +3,6 @@ const prisma = require('../config/db');
 
 const registerUser = async (data) => {
     const {
-        name,
         email,
         password,
         planId,
