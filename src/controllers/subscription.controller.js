@@ -17,6 +17,23 @@ const upgrade = async (req, res, next) => {
     }
 };
 
+const addAddon = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+        const { type, value } = req.body;
+
+        if (!type || !value) {
+            return sendResponse(res, 400, false, 'Type and Value are required');
+        }
+
+        const addon = await subscriptionService.addAddon(userId, { type, value });
+        sendResponse(res, 201, true, 'Addon added successfully', addon);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     upgrade,
+    addAddon,
 };

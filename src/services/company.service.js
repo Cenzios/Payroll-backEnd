@@ -30,13 +30,7 @@ const createCompany = async (userId, data) => {
         registrationNumber,
         address,
         contactNumber,
-        employeeEPFPercentage,
-        employerEPFPercentage,
-        etfPercentage,
-        salaryType,
     } = data;
-
-
 
     return await prisma.company.create({
         data: {
@@ -44,10 +38,6 @@ const createCompany = async (userId, data) => {
             registrationNumber,
             address,
             contactNumber,
-            employeeEPFPercentage: employeeEPFPercentage || 8.0,
-            employerEPFPercentage: employerEPFPercentage || 12.0,
-            etfPercentage: etfPercentage || 3.0,
-            salaryType: salaryType || 'MONTHLY',
             ownerId: userId,
         },
     });

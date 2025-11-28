@@ -33,6 +33,17 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id])
   plan Plan @relation(fields: [planId], references: [id])
+  addons SubscriptionAddon[]
+}
+
+model SubscriptionAddon {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  type           String   // "EMPLOYEE_EXTRA"
+  value          Int      // e.g. +5, +10
+  createdAt      DateTime @default(now())
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
 }
 
 model Company {
@@ -44,22 +55,11 @@ model Company {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  // Payroll Settings
-  employeeEPFPercentage Float   @default(8.0)
-  employerEPFPercentage Float   @default(12.0)
-  etfPercentage         Float   @default(3.0)
-  salaryType            SalaryType @default(MONTHLY)
-
   // Relations
   ownerId   String
   owner     User     @relation(fields: [ownerId], references: [id])
   employees Employee[]
   salaries  Salary[]
-}
-
-enum SalaryType {
-  DAILY
-  MONTHLY
 }
 
 model User {
@@ -95,13 +95,7 @@ model Employee {
 
   // Salary Details
   dailyRate     Float    @default(0)
-  otRate        Float    @default(0)
   
-  // Allowances (Fixed)
-  transportAllowance Float @default(0)
-  mealAllowance      Float @default(0)
-  otherAllowance     Float @default(0)
-
   // EPF Settings
   epfEnabled    Boolean  @default(true)
 
@@ -123,13 +117,10 @@ model Salary {
   
   // Inputs
   workingDays Int
-  otHours     Float
   bonus       Float @default(0)
 
   // Calculated Values
   basicPay          Float
-  otAmount          Float
-  totalAllowances   Float
   grossSalary       Float
   
   employeeEPF       Float

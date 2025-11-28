@@ -6,5 +6,6 @@ const { protect } = require('../middlewares/authMiddleware');
 router.use(protect);
 
 router.put('/upgrade', subscriptionController.upgrade);
+router.post('/addon', subscriptionController.addAddon);
 
 module.exports = router;

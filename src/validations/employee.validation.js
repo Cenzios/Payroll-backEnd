@@ -10,7 +10,6 @@ const createEmployeeValidation = [
     body('designation').notEmpty().withMessage('Designation is required'),
     body('department').notEmpty().withMessage('Department is required'),
     body('dailyRate').isFloat({ min: 0 }).withMessage('Daily Rate must be positive'),
-    body('otRate').isFloat({ min: 0 }).withMessage('OT Rate must be positive'),
 ];
 
 const updateEmployeeValidation = [
