@@ -11,6 +11,7 @@ import employeeRoutes from './routes/employee.routes';
 import salaryRoutes from './routes/salary.routes';
 import subscriptionRoutes from './routes/subscription.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import reportRoutes from './routes/report.routes';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/v1/employees', employeeRoutes);
 app.use('/api/v1/salary', salaryRoutes);
 app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/reports', reportRoutes);
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

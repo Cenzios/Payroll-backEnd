@@ -1,0 +1,43 @@
+import { query } from 'express-validator';
+
+/**
+ * Validation for Company Payroll Summary API
+ */
+const companyPayrollSummaryValidation = [
+    query('companyId')
+        .notEmpty()
+        .withMessage('Company ID is required')
+        .isUUID()
+        .withMessage('Company ID must be a valid UUID'),
+
+    query('month')
+        .notEmpty()
+        .withMessage('Month is required')
+        .isInt({ min: 1, max: 12 })
+        .withMessage('Month must be between 1 and 12'),
+
+    query('year')
+        .notEmpty()
+        .withMessage('Year is required')
+        .isInt({ min: 2000, max: 2100 })
+        .withMessage('Year must be a valid 4-digit year'),
+];
+
+/**
+ * Validation for Employee Payroll Summary API
+ */
+const employeePayrollSummaryValidation = [
+    query('employeeId')
+        .notEmpty()
+        .withMessage('Employee ID is required')
+        .isUUID()
+        .withMessage('Employee ID must be a valid UUID'),
+
+    query('year')
+        .notEmpty()
+        .withMessage('Year is required')
+        .isInt({ min: 2000, max: 2100 })
+        .withMessage('Year must be a valid 4-digit year'),
+];
+
+export { companyPayrollSummaryValidation, employeePayrollSummaryValidation };
