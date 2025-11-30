@@ -109,13 +109,12 @@ async function main() {
         // 7. Calculate Salary
         // Basic = 1000 * 20 = 20000
         // Employee EPF = 20000 * 8% = 1600
-        // Net = 20000 - 1600 = 18400
+        // Net = 20000 - 1600 = 18400 (NO BONUS)
         const salary = await calculateAndSaveSalary(company.id, {
             employeeId: employee1.id,
             month: 1,
             year: 2025,
             workingDays: 20,
-            bonus: 5000,
         });
 
         console.log('Salary calculated:', salary);
@@ -123,8 +122,8 @@ async function main() {
         // Verify Calculation
         const expectedBasic = 1000 * 20;
         const expectedEPF = (expectedBasic * 8) / 100;
-        // My logic: Net = (Basic - EPF) + Bonus
-        const expectedNet = (expectedBasic - expectedEPF) + 5000;
+        // Corrected logic: Net = Basic - EPF (NO BONUS)
+        const expectedNet = expectedBasic - expectedEPF;
 
         if (salary.basicPay === expectedBasic && salary.employeeEPF === expectedEPF && salary.netSalary === expectedNet) {
             console.log('✅ Salary calculation correct.');

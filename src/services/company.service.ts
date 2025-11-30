@@ -8,13 +8,16 @@ interface CompanyData {
 }
 
 const createCompany = async (userId: string, data: CompanyData) => {
-    // 1. Get User's Active Subscription & Plan
+    // 1. Get User's Active Subscription & Plan with Add-ons
     const subscription = await prisma.subscription.findFirst({
         where: {
             userId,
             status: 'ACTIVE',
         },
-        include: { plan: true },
+        include: {
+            plan: true,
+            addons: true
+        },
     });
 
     if (!subscription) {
@@ -26,12 +29,25 @@ const createCompany = async (userId: string, data: CompanyData) => {
         where: { ownerId: userId },
     });
 
-    // 3. Check Limit
-    if (companyCount >= subscription.plan.maxCompanies) {
-        throw new Error(`Company limit reached (${subscription.plan.maxCompanies}). Upgrade your plan to add more companies.`);
+    // 3. Calculate company add-on capacity
+    const addonCompanyCapacity = subscription.addons
+        .filter(addon => addon.type === 'COMPANY_EXTRA')
+        .reduce((sum, addon) => sum + addon.value, 0);
+
+    // 4. Calculate final company limit
+    const finalCompanyLimit = subscription.plan.maxCompanies + addonCompanyCapacity;
+
+    // 5. Check Limit
+    if (companyCount >= finalCompanyLimit) {
+        throw new Error(
+            `Company limit reached (${finalCompanyLimit}). ` +
+            `Plan allows ${subscription.plan.maxCompanies}, ` +
+            `add-ons provide ${addonCompanyCapacity} extra. ` +
+            `Upgrade your plan to add more companies.`
+        );
     }
 
-    // 4. Create Company
+    // 6. Create Company
     const {
         name,
         registrationNumber,

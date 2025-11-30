@@ -117,11 +117,9 @@ model Salary {
   
   // Inputs
   workingDays Int
-  bonus       Float @default(0)
 
   // Calculated Values
   basicPay          Float
-  grossSalary       Float
   
   employeeEPF       Float
   employerEPF       Float

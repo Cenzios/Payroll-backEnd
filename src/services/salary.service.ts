@@ -6,11 +6,10 @@ interface SalaryData {
     month: number;
     year: number;
     workingDays: number;
-    bonus?: number;
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
-    const { employeeId, month, year, workingDays, bonus = 0 } = data;
+    const { employeeId, month, year, workingDays } = data;
 
     // 1. Fetch Employee
     const employee = await prisma.employee.findFirst({
@@ -36,7 +35,6 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
 
     // 2. Perform Calculations
     const basicPay = employee.dailyRate * workingDays;
-    const grossSalary = basicPay + bonus;
 
     let employeeEPF = 0;
     let employerEPF = 0;
@@ -48,8 +46,8 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         etfAmount = (basicPay * ETF_PERCENTAGE) / 100;
     }
 
-    // Net Salary calculation includes bonus
-    const netSalary = (basicPay - employeeEPF) + bonus;
+    // Net Salary = Basic Pay - Employee EPF (NO BONUS)
+    const netSalary = basicPay - employeeEPF;
 
     // 3. Save to DB
     const salaryRecord = await prisma.salary.create({
@@ -57,9 +55,7 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             month,
             year,
             workingDays,
-            bonus,
             basicPay,
-            grossSalary,
             employeeEPF,
             employerEPF,
             etfAmount,
