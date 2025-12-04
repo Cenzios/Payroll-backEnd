@@ -63,12 +63,19 @@ model Company {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(ADMIN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(uuid())
+  fullName          String    @default("")
+  email             String    @unique
+  password          String?
+  role              Role      @default(ADMIN)
+  
+  isEmailVerified   Boolean   @default(false)
+  emailVerifyToken  String?
+  emailVerifyExpiry DateTime?
+  isPasswordSet     Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relations
   subscriptions Subscription[]

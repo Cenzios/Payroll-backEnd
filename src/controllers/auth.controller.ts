@@ -3,22 +3,30 @@ import * as authService from '../services/auth.service';
 import sendResponse from '../utils/responseHandler';
 import { generateToken } from '../utils/tokenUtils';
 
-const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const startSignup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const result = await authService.registerUser(req.body);
+        const result = await authService.startSignup(req.body);
+        sendResponse(res, 200, true, result.message);
+    } catch (error) {
+        next(error);
+    }
+};
 
-        // Generate token for registered user
-        const token = generateToken({
-            userId: result.user.id,
-            role: result.user.role
-        });
+const verifyEmail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { token } = req.query;
+        const result = await authService.verifyEmail(token as string);
+        sendResponse(res, 200, true, result.message);
+    } catch (error) {
+        next(error);
+    }
+};
 
-        sendResponse(res, 201, true, 'User registered successfully', {
-            user: result.user,
-            plan: result.plan,
-            subscription: result.subscription,
-            token: token
-        });
+const setPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { email, password } = req.body;
+        const result = await authService.setPassword(email, password);
+        sendResponse(res, 200, true, result.message);
     } catch (error) {
         next(error);
     }
@@ -40,7 +48,9 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
             token: token
         });
     } catch (error: any) {
-        if (error.message === 'Invalid credentials') {
+        if (error.message === 'Invalid credentials' ||
+            error.message === 'Please verify your email before logging in' ||
+            error.message === 'Please set your password before logging in') {
             sendResponse(res, 401, false, error.message);
             return;
         }
@@ -48,4 +58,4 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
     }
 };
 
-export { register, login };
+export { startSignup, verifyEmail, setPassword, login };

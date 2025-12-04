@@ -1,6 +1,15 @@
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 
-const registerValidation = [
+const startSignupValidation = [
+    body('fullName').notEmpty().withMessage('Full Name is required'),
+    body('email').isEmail().withMessage('Valid Email is required'),
+];
+
+const verifyEmailValidation = [
+    query('token').notEmpty().withMessage('Verification token is required'),
+];
+
+const setPasswordValidation = [
     body('email').isEmail().withMessage('Valid Email is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ];
@@ -10,4 +19,9 @@ const loginValidation = [
     body('password').notEmpty().withMessage('Password is required'),
 ];
 
-export { registerValidation, loginValidation };
+export {
+    startSignupValidation,
+    verifyEmailValidation,
+    setPasswordValidation,
+    loginValidation
+};
