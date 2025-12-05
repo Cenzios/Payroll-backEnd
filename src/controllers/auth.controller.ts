@@ -17,7 +17,12 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction): Pro
         const { token } = req.query;
         const result = await authService.verifyEmail(token as string);
         sendResponse(res, 200, true, result.message);
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message === 'Invalid or expired verification token' ||
+            error.message === 'Verification token has expired. Please request a new verification email.') {
+            sendResponse(res, 400, false, error.message);
+            return;
+        }
         next(error);
     }
 };

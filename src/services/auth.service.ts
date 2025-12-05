@@ -11,28 +11,23 @@ interface StartSignupData {
 const startSignup = async (data: StartSignupData) => {
     const { fullName, email } = data;
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
         where: { email },
     });
 
     if (existingUser) {
-        // If user exists and is verified, block
         if (existingUser.isEmailVerified) {
             throw new Error('User with this email already exists');
         }
-        // If user exists but not verified, resend verification email
         const emailVerifyToken = generateVerificationToken();
         const emailVerifyExpiry = generateTokenExpiry(parseInt(process.env.EMAIL_VERIFY_TOKEN_EXPIRES || '15'));
 
-        // Try to send email FIRST
         try {
             await sendVerificationEmail(email, emailVerifyToken);
         } catch (emailError) {
             throw new Error('Failed to send verification email. Please try again later.');
         }
 
-        // Update the existing user with new token AFTER email is sent
         await prisma.user.update({
             where: { id: existingUser.id },
             data: {
@@ -44,24 +39,20 @@ const startSignup = async (data: StartSignupData) => {
         return { success: true, message: 'Verification email resent. Please check your inbox.' };
     }
 
-    // Generate token
     const emailVerifyToken = generateVerificationToken();
     const emailVerifyExpiry = generateTokenExpiry(parseInt(process.env.EMAIL_VERIFY_TOKEN_EXPIRES || '15'));
 
-    // IMPORTANT: Try to send email FIRST before saving to database
     try {
         await sendVerificationEmail(email, emailVerifyToken);
     } catch (emailError) {
-        // If email fails, don't create the user
         throw new Error('Failed to send verification email. Please check your email address and try again.');
     }
 
-    // Only create user if email was sent successfully
     const user = await prisma.user.create({
         data: {
             fullName,
             email,
-            password: null, // Password set later
+            password: null,
             role: 'ADMIN',
             isEmailVerified: false,
             emailVerifyToken,
@@ -87,12 +78,33 @@ const verifyEmail = async (token: string) => {
         currentTime: new Date()
     });
 
+    // ✅ First check if user is already verified
+    const alreadyVerified = await prisma.user.findFirst({
+        where: {
+            isEmailVerified: true,
+            email: {
+                in: await prisma.user.findMany({
+                    where: { emailVerifyToken: token },
+                    select: { email: true }
+                }).then(users => users.map(u => u.email))
+            }
+        }
+    });
+
+    if (alreadyVerified) {
+        console.log('User already verified:', alreadyVerified.email);
+        return {
+            success: true,
+            message: 'Email already verified. You can now set your password.'
+        };
+    }
+
     // Find user by token
     const user = await prisma.user.findFirst({
         where: {
             emailVerifyToken: token,
             emailVerifyExpiry: {
-                gt: new Date(), // Check if expiry is in the future
+                gt: new Date(),
             },
         },
     });
@@ -105,7 +117,6 @@ const verifyEmail = async (token: string) => {
     } : 'No user found');
 
     if (!user) {
-        // Check if token exists but expired
         const expiredUser = await prisma.user.findFirst({
             where: {
                 emailVerifyToken: token,
@@ -147,11 +158,9 @@ const setPassword = async (email: string, password: string) => {
         throw new Error('Email not verified');
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Update password
     await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -172,7 +181,6 @@ const login = async (email: string, password: string) => {
         throw new Error('Invalid credentials');
     }
 
-    // Check verification status
     if (!user.isEmailVerified) {
         throw new Error('Please verify your email before logging in');
     }
@@ -186,7 +194,6 @@ const login = async (email: string, password: string) => {
         throw new Error('Invalid credentials');
     }
 
-    // Remove password from user object before returning
     const { password: _, ...userWithoutPassword } = user;
 
     return { user: userWithoutPassword };
