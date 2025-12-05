@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
-const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+const smtpHost = process.env.SMTP_HOST || "mailslurp.mx";
+const smtpPort = parseInt(process.env.SMTP_PORT || '2465');
 
 console.log('SMTP Config:', { host: smtpHost, port: smtpPort });
 
