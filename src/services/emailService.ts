@@ -1,21 +1,40 @@
 import nodemailer from 'nodemailer';
 
-const smtpHost = process.env.SMTP_HOST || "mailslurp.mx";
-const smtpPort = parseInt(process.env.SMTP_PORT || '2465');
+const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+const smtpSecure = smtpPort === 465; // true for 465, false for other ports
 
-console.log('SMTP Config:', { host: smtpHost, port: smtpPort });
+console.log('SMTP Config:', {
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    user: process.env.SMTP_USER
+});
 
 const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: false, // true for 465, false for other ports
+    secure: smtpSecure,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
+    // Add timeout settings
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
 });
 
-export const sendVerificationEmail = async (email: string, token: string) => {
+// Verify connection configuration on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP Connection Error:', error);
+    } else {
+        console.log('SMTP Server is ready to send emails');
+    }
+});
+
+export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
@@ -35,11 +54,11 @@ export const sendVerificationEmail = async (email: string, token: string) => {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Verification email sent to ${email}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Verification email sent to ${email}. Message ID: ${info.messageId}`);
     } catch (error) {
         console.error('Error sending verification email:', error);
-        // We don't throw here to avoid breaking the signup flow if email fails, 
-        // but in a strict system you might want to.
+        // Re-throw the error so it can be caught by the calling function
+        throw new Error('Failed to send verification email. Please try again later.');
     }
-};
+}
