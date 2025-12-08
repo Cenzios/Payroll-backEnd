@@ -1,17 +1,21 @@
 # -----------------------
-# 1. Base build stage
+# 1. Build stage
 # -----------------------
 FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install --production
 
-# Copy source code
+# Install dependencies
+RUN npm install
+
+# Copy all source code
 COPY . .
+
+# Build TypeScript
+RUN npm run build   # assumes "build": "tsc" in package.json
 
 # -----------------------
 # 2. Runtime stage
@@ -20,18 +24,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy only what’s needed at runtime
-COPY --from=builder /app /app
+# Copy node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
 
-# Expose the API port
+# Copy built files
+COPY --from=builder /app/dist ./dist
+
+# Copy any other needed files (optional)
+COPY --from=builder /app/prisma ./prisma
+
+# Expose the port
 EXPOSE 6090
 
-# Default environment variables (can override in Compose/Kubernetes)
-ENV NODE_ENV=production
-
-# Healthcheck (optional)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD wget --spider -q http://localhost:3000/health || exit 1
-
-# Run the app
-CMD ["npm", "start"]
+# Run the server
+CMD ["node", "dist/server.js"]
