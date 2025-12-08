@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 # Expose the API port
-EXPOSE 5090
+EXPOSE 6090
 
 # Default environment variables (can override in Compose/Kubernetes)
 ENV NODE_ENV=production
