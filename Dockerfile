@@ -5,16 +5,19 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files first (for caching)
+# Copy package files first
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy all source code, including tsconfig.json
+# Copy all source code
 COPY . .
 
-# Build TypeScript (will now respect your tsconfig.json)
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build TypeScript
 RUN npm run build
 
 # -----------------------
@@ -30,7 +33,8 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy compiled JS
 COPY --from=builder /app/dist ./dist
 
-# Copy Prisma schema
+# Copy Prisma client
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 
 # Expose backend port
