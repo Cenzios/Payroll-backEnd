@@ -3,12 +3,13 @@
 # -----------------------
 FROM node:18-alpine AS builder
 
+# Install build dependencies and OpenSSL 1.1
+RUN apk add --no-cache bash curl openssl1.1-compat
+
 WORKDIR /app
 
-# Copy package files first
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
 # Copy all source code
@@ -24,6 +25,9 @@ RUN npm run build
 # 2. Runtime stage
 # -----------------------
 FROM node:18-alpine
+
+# Install runtime OpenSSL 1.1
+RUN apk add --no-cache openssl1.1-compat
 
 WORKDIR /app
 
