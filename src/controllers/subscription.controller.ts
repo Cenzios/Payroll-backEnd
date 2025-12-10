@@ -48,7 +48,6 @@ export const addAddon = async (req: Request, res: Response, next: NextFunction):
     }
 };
 
-// ✅ ✅ ✅ SUBSCRIBE USER USING EMAIL (BUY PLAN)
 export const subscribePlan = async (req: Request, res: Response) => {
     try {
         const { email, planId } = req.body;
