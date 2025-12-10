@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import * as subscriptionService from '../services/subscription.service';
 import sendResponse from '../utils/responseHandler';
 
-const upgrade = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// ✅ Upgrade Existing Plan
+export const upgrade = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
         const { planId } = req.body;
@@ -24,7 +25,8 @@ const upgrade = async (req: Request, res: Response, next: NextFunction): Promise
     }
 };
 
-const addAddon = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// ✅ Add Addon
+export const addAddon = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
         const { type, value } = req.body;
@@ -46,4 +48,29 @@ const addAddon = async (req: Request, res: Response, next: NextFunction): Promis
     }
 };
 
-export { upgrade, addAddon };
+// ✅ ✅ ✅ SUBSCRIBE USER USING EMAIL (BUY PLAN)
+export const subscribePlan = async (req: Request, res: Response) => {
+    try {
+        const { email, planId } = req.body;
+
+        if (!email || !planId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and planId are required',
+            });
+        }
+
+        const result = await subscriptionService.subscribeUserToPlan(email, planId);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Plan subscribed successfully',
+            data: result,
+        });
+    } catch (error: any) {
+        return res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};

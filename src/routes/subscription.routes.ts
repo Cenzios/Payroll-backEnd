@@ -8,5 +8,6 @@ router.use(protect);
 
 router.put('/upgrade', subscriptionController.upgrade);
 router.post('/addon', subscriptionController.addAddon);
+router.post('/subscribe', subscriptionController.subscribePlan);
 
 export default router;
