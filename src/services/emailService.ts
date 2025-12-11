@@ -35,7 +35,7 @@ transporter.verify((error, success) => {
 });
 
 export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5090';
+    const frontendUrl = process.env.FRONTEND_URL;
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
     const mailOptions = {
