@@ -36,6 +36,9 @@ passport.use(
                         },
                     });
                     isNewUser = true;
+                    console.log(`✅ New user created with ID: ${user.id}, isNewUser = TRUE`);
+                } else {
+                    console.log(`👤 Existing user found: ${email}, ID: ${user.id}`);
                 }
 
                 const subscription = await prisma.subscription.findFirst({
@@ -43,12 +46,27 @@ passport.use(
                 });
 
                 const hasSubscription = !!subscription;
+                console.log(`📊 Subscription check for user ${user.id}:`, {
+                    hasSubscription,
+                    subscriptionId: subscription?.id || 'none',
+                    subscriptionStatus: subscription?.status || 'none'
+                });
 
                 if (!hasSubscription) {
                     isNewUser = true; // Treat as new if no active plan
+                    console.log(`✅ No active subscription found, isNewUser = TRUE`);
+                } else {
+                    console.log(`ℹ️ User has active subscription, keeping isNewUser = ${isNewUser}`);
                 }
 
                 const token = signToken(user.id, user.role, user.fullName || '', user.email);
+
+                console.log(`🔀 Final OAuth decision:`, {
+                    userId: user.id,
+                    email: user.email,
+                    isNewUser,
+                    willRedirectTo: isNewUser ? 'SET_COMPANY' : 'DASHBOARD'
+                });
 
                 // Instead of done(), we will redirect from route handler
                 // So just return the info via done

@@ -27,8 +27,13 @@ router.get(
 
         // Now redirect with query params
         const redirectUrl = isNewUser
-            ? `${process.env.FRONTEND_URL}/get-plan?token=${token}&new=true`
+            ? `${process.env.FRONTEND_URL}/set-company?token=${token}&new=true`
             : `${process.env.FRONTEND_URL}/dashboard?token=${token}`;
+
+        console.log(`🔀 Redirecting Google OAuth user:`, {
+            isNewUser,
+            redirectUrl: redirectUrl.replace(token, 'TOKEN_HIDDEN')
+        });
 
         res.redirect(redirectUrl);
     }
