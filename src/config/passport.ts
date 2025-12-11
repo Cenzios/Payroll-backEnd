@@ -21,6 +21,7 @@ passport.use(
                     return done(new Error('Google account has no email'), undefined);
                 }
 
+                // ✅ STEP 1: CHECK IF USER EXISTS IN DATABASE
                 let user = await prisma.user.findUnique({
                     where: { email },
                 });
@@ -28,7 +29,9 @@ passport.use(
                 let isNewUser = false;
 
                 if (!user) {
-                    // ✅ CREATE NEW USER
+                    // ✅ USER DOESN'T EXIST → CREATE NEW USER
+                    console.log(`🆕 Creating new Google user: ${email}`);
+
                     user = await prisma.user.create({
                         data: {
                             email,
@@ -38,10 +41,24 @@ passport.use(
                             isPasswordSet: false,
                         },
                     });
+
                     isNewUser = true;
+
+                    // ✅ NEW USER → MUST GO TO /get-plan
+                    const token = signToken(user.id, user.role, user.fullName, user.email);
+
+                    console.log(`✅ New user created. Redirect to /get-plan`);
+
+                    return done(null, {
+                        user,
+                        token,
+                        isNewUser: true // ✅ NEW USER = TRUE
+                    });
                 }
 
-                // ✅ CHECK IF USER HAS ACTIVE SUBSCRIPTION
+                // ✅ STEP 2: USER EXISTS → CHECK IF THEY HAVE ACTIVE SUBSCRIPTION
+                console.log(`👤 Existing user found: ${email}`);
+
                 const subscription = await prisma.subscription.findFirst({
                     where: {
                         userId: user.id,
@@ -51,15 +68,32 @@ passport.use(
 
                 const hasSubscription = !!subscription;
 
-                // ✅ GENERATE TOKEN WITH FULL USER DATA (using signToken)
+                if (!hasSubscription) {
+                    // ✅ USER EXISTS BUT NO SUBSCRIPTION → REDIRECT TO /get-plan
+                    console.log(`⚠️ User exists but NO active subscription. Redirect to /get-plan`);
+
+                    const token = signToken(user.id, user.role, user.fullName, user.email);
+
+                    return done(null, {
+                        user,
+                        token,
+                        isNewUser: true // ✅ NO SUBSCRIPTION = TREAT AS NEW USER
+                    });
+                }
+
+                // ✅ STEP 3: USER EXISTS + HAS SUBSCRIPTION → REDIRECT TO /dashboard
+                console.log(`✅ User exists with active subscription. Redirect to /dashboard`);
+
                 const token = signToken(user.id, user.role, user.fullName, user.email);
 
-                return done(null, { 
-                    user, 
+                return done(null, {
+                    user,
                     token,
-                    isNewUser: !hasSubscription // If no subscription, treat as new user
+                    isNewUser: false // ✅ HAS SUBSCRIPTION = EXISTING USER
                 });
+
             } catch (err) {
+                console.error('❌ Google OAuth Error:', err);
                 return done(err as any, undefined);
             }
         }
