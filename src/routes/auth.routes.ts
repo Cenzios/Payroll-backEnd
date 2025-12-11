@@ -15,21 +15,21 @@ router.post('/start-signup', startSignupValidation, validate, authController.sta
 router.get('/verify-email', verifyEmailValidation, validate, authController.verifyEmail);
 router.post('/set-password', setPasswordValidation, validate, authController.setPassword);
 router.post('/login', loginValidation, validate, authController.login);
-router.get(
-    '/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+// In auth.routes.ts
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
 router.get(
     '/google/callback',
-    passport.authenticate('google', {
-        session: false,
-        failureRedirect: `${process.env.FRONTEND_URL}/login`,
-    }),
-    (req, res) => {
-        // @ts-ignore
-        const { user, token } = req.user;
+    passport.authenticate('google', { session: false }),
+    (req: any, res) => {
+        // This is where we get the result from done()
+        const { token, isNewUser } = req.user;
 
-        const redirectUrl = `${process.env.FRONTEND_URL}/google-auth-success?token=${token}`;
+        // Now redirect with query params
+        const redirectUrl = isNewUser
+            ? `${process.env.FRONTEND_URL}/get-plan?token=${token}&new=true`
+            : `${process.env.FRONTEND_URL}/dashboard?token=${token}`;
+
         res.redirect(redirectUrl);
     }
 );
