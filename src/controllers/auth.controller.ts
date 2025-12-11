@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service';
 import sendResponse from '../utils/responseHandler';
-import { generateToken } from '../utils/tokenUtils';
+import { generateToken } from '../utils/tokenUtils'; // ✅ USE THIS
 
 const startSignup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -42,10 +42,12 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
         const { email, password } = req.body;
         const result = await authService.login(email, password);
 
-        // Generate JWT token
+        // ✅ GENERATE JWT TOKEN WITH FULL USER DATA
         const token = generateToken({
             userId: result.user.id,
-            role: result.user.role
+            role: result.user.role,
+            fullName: result.user.fullName, // ✅ ADD
+            email: result.user.email         // ✅ ADD
         });
 
         sendResponse(res, 200, true, 'Login successful', {

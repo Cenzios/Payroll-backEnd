@@ -21,12 +21,14 @@ passport.use(
                     return done(new Error('Google account has no email'), undefined);
                 }
 
-
                 let user = await prisma.user.findUnique({
                     where: { email },
                 });
 
+                let isNewUser = false;
+
                 if (!user) {
+                    // ✅ CREATE NEW USER
                     user = await prisma.user.create({
                         data: {
                             email,
@@ -36,11 +38,27 @@ passport.use(
                             isPasswordSet: false,
                         },
                     });
+                    isNewUser = true;
                 }
 
-                const token = signToken(user.id, user.role);
+                // ✅ CHECK IF USER HAS ACTIVE SUBSCRIPTION
+                const subscription = await prisma.subscription.findFirst({
+                    where: {
+                        userId: user.id,
+                        status: 'ACTIVE',
+                    },
+                });
 
-                return done(null, { user, token });
+                const hasSubscription = !!subscription;
+
+                // ✅ GENERATE TOKEN WITH FULL USER DATA (using signToken)
+                const token = signToken(user.id, user.role, user.fullName, user.email);
+
+                return done(null, { 
+                    user, 
+                    token,
+                    isNewUser: !hasSubscription // If no subscription, treat as new user
+                });
             } catch (err) {
                 return done(err as any, undefined);
             }
