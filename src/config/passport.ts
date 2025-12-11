@@ -21,7 +21,7 @@ passport.use(
                     return done(new Error('Google account has no email'), undefined);
                 }
 
-                // ✅ MATCHES YOUR PRISMA USER MODEL
+
                 let user = await prisma.user.findUnique({
                     where: { email },
                 });
@@ -31,9 +31,9 @@ passport.use(
                         data: {
                             email,
                             fullName,
-                            role: 'ADMIN',               // default role
-                            isEmailVerified: true,       // Google emails are trusted
-                            isPasswordSet: false,        // no password for Google users
+                            role: 'ADMIN',
+                            isEmailVerified: true,
+                            isPasswordSet: false,
                         },
                     });
                 }
