@@ -52,7 +52,8 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
 
         sendResponse(res, 200, true, 'Login successful', {
             user: result.user,
-            token: token
+            token: token,
+            hasActivePlan: result.hasActivePlan
         });
     } catch (error: any) {
         if (error.message === 'Invalid credentials' ||

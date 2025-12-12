@@ -194,9 +194,22 @@ const login = async (email: string, password: string) => {
         throw new Error('Invalid credentials');
     }
 
+    // Check for active subscription
+    const subscription = await prisma.subscription.findFirst({
+        where: { userId: user.id, status: 'ACTIVE' },
+    });
+
+    const hasActivePlan = !!subscription;
+
+    console.log(`📊 Login subscription check for ${email}:`, {
+        userId: user.id,
+        hasActivePlan,
+        subscriptionId: subscription?.id || 'none'
+    });
+
     const { password: _, ...userWithoutPassword } = user;
 
-    return { user: userWithoutPassword };
+    return { user: userWithoutPassword, hasActivePlan };
 };
 
 export { startSignup, verifyEmail, setPassword, login };
