@@ -49,9 +49,10 @@ model SubscriptionAddon {
 model Company {
   id                String   @id @default(uuid())
   name              String
-  registrationNumber String?  @unique
+  email             String
   address           String
   contactNumber     String
+  departments       Json     // Store departments as JSON array
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
