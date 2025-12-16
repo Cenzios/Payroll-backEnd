@@ -11,6 +11,7 @@ interface EmployeeData {
     department: string;
     dailyRate: number;
     epfEnabled?: boolean;
+    status?: string;
     // Deprecated fields that should be filtered out
     otRate?: number;
     transportAllowance?: number;
