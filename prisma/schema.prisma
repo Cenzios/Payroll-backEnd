@@ -11,13 +11,13 @@ datasource db {
 }
 
 model Plan {
-  id            String   @id @default(uuid())
-  name          String   // Free, Professional, Enterprise
-  price         Float
-  maxEmployees  Int
-  maxCompanies  Int
-  features      Json
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  name         String // Free, Professional, Enterprise
+  price        Float
+  maxEmployees Int
+  maxCompanies Int
+  features     Json
+  createdAt    DateTime @default(now())
 
   subscriptions Subscription[]
 }
@@ -26,56 +26,57 @@ model Subscription {
   id        String   @id @default(uuid())
   userId    String
   planId    String
-  status    String   // ACTIVE, EXPIRED, CANCELLED
+  status    String // ACTIVE, EXPIRED, CANCELLED
   startDate DateTime
   endDate   DateTime
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
-  plan Plan @relation(fields: [planId], references: [id])
+  user   User                @relation(fields: [userId], references: [id])
+  plan   Plan                @relation(fields: [planId], references: [id])
   addons SubscriptionAddon[]
 }
 
 model SubscriptionAddon {
   id             String   @id @default(uuid())
   subscriptionId String
-  type           String   // "EMPLOYEE_EXTRA"
-  value          Int      // e.g. +5, +10
+  type           String // "EMPLOYEE_EXTRA"
+  value          Int // e.g. +5, +10
   createdAt      DateTime @default(now())
 
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
 }
 
 model Company {
-  id                String   @id @default(uuid())
-  name              String
-  registrationNumber String?  @unique
-  address           String
-  contactNumber     String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  address       String
+  contactNumber String
+  departments   Json // Store departments as JSON array
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
+  owner     User       @relation(fields: [ownerId], references: [id])
   employees Employee[]
   salaries  Salary[]
 }
 
 model User {
-  id                String    @id @default(uuid())
-  fullName          String    @default("")
-  email             String    @unique
-  password          String?
-  role              Role      @default(ADMIN)
-  
+  id       String  @id @default(uuid())
+  fullName String  @default("")
+  email    String  @unique
+  password String?
+  role     Role    @default(ADMIN)
+
   isEmailVerified   Boolean   @default(false)
   emailVerifyToken  String?
   emailVerifyExpiry DateTime?
   isPasswordSet     Boolean   @default(false)
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   subscriptions Subscription[]
@@ -88,51 +89,54 @@ enum Role {
 }
 
 model Employee {
-  id        String   @id @default(uuid())
-  fullName  String
-  address   String
-  nic       String   @unique
-  employeeId String // Internal ID given by company
+  id            String  @id @default(uuid())
+  fullName      String
+  address       String
+  nic           String  @unique
+  employeeId    String // Internal ID given by company
   contactNumber String
-  
+  email         String?
+
   // Employment Details
-  joinedDate    DateTime
-  designation   String
-  department    String
+  joinedDate  DateTime
+  designation String
+  department  String
 
   // Salary Details
-  dailyRate     Float    @default(0)
-  
-  // EPF Settings
-  epfEnabled    Boolean  @default(true)
+  dailyRate Float @default(0)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  // EPF Settings
+  epfEnabled Boolean @default(true)
+
+  status String @default("ACTIVE") // ACTIVE, INACTIVE
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   companyId String
-  company   Company @relation(fields: [companyId], references: [id])
+  company   Company  @relation(fields: [companyId], references: [id])
   salaries  Salary[]
 
   @@unique([companyId, employeeId]) // Employee ID must be unique within a company
 }
 
 model Salary {
-  id        String   @id @default(uuid())
-  month     Int      // 1-12
-  year      Int
-  
+  id    String @id @default(uuid())
+  month Int // 1-12
+  year  Int
+
   // Inputs
   workingDays Int
 
   // Calculated Values
-  basicPay          Float
-  
-  employeeEPF       Float
-  employerEPF       Float
-  etfAmount         Float
-  
-  netSalary         Float
+  basicPay Float
+
+  employeeEPF Float
+  employerEPF Float
+  etfAmount   Float
+
+  netSalary Float
 
   createdAt DateTime @default(now())
 

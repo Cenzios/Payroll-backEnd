@@ -11,6 +11,7 @@ interface EmployeeData {
     department: string;
     dailyRate: number;
     epfEnabled?: boolean;
+    status?: string;
     // Deprecated fields that should be filtered out
     otRate?: number;
     transportAllowance?: number;
@@ -58,6 +59,11 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
     // 4. Check Limit
     if (employeeCount >= finalLimit) {
         throw new Error(`Employee limit reached (${finalLimit}). Upgrade your plan or buy add-ons to add more employees.`);
+    }
+
+    // Handle PENDING NIC
+    if (data.nic === 'PENDING') {
+        data.nic = `PENDING_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
     }
 
     // 5. Check for duplicate NIC or EmployeeID within company
