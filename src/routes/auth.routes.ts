@@ -5,9 +5,12 @@ import {
     startSignupValidation,
     verifyEmailValidation,
     setPasswordValidation,
-    loginValidation
+    loginValidation,
+    updateProfileValidation,
+    changePasswordValidation
 } from '../validations/auth.validation';
 import validate from '../middlewares/validateRequest';
+import { protect } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
@@ -38,5 +41,9 @@ router.get(
         res.redirect(redirectUrl);
     }
 );
+
+// Protected routes
+router.put('/profile', protect, updateProfileValidation, validate, authController.updateProfile);
+router.post('/change-password', protect, changePasswordValidation, validate, authController.changePassword);
 
 export default router;

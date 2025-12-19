@@ -194,6 +194,11 @@ const deleteEmployee = async (userId: string, companyId: string, id: string) => 
         throw new Error('Employee not found');
     }
 
+    // Delete related salaries first (manual cascade)
+    await prisma.salary.deleteMany({
+        where: { employeeId: id },
+    });
+
     return await prisma.employee.delete({
         where: { id },
     });
