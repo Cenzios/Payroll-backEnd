@@ -66,4 +66,36 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
     }
 };
 
-export { startSignup, verifyEmail, setPassword, login };
+const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+        const result = await authService.updateProfile(userId, req.body);
+        sendResponse(res, 200, true, 'Profile updated successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+        const result = await authService.changePassword(userId, req.body);
+        sendResponse(res, 200, true, result.message);
+    } catch (error: any) {
+        if (error.message === 'Current password is incorrect') {
+            sendResponse(res, 400, false, error.message);
+            return;
+        }
+        next(error);
+    }
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };
