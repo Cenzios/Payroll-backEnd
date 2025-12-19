@@ -2,7 +2,8 @@ import express from 'express';
 import * as reportController from '../controllers/report.controller';
 import {
     companyPayrollSummaryValidation,
-    employeePayrollSummaryValidation
+    employeePayrollSummaryValidation,
+    selectedEmployeesSummaryValidation
 } from '../validations/report.validation';
 import validate from '../middlewares/validateRequest';
 import { protect } from '../middlewares/authMiddleware';
@@ -26,7 +27,7 @@ router.get(
 
 /**
  * GET /api/v1/reports/employee-payroll-summary
- * Query params: employeeId, year
+ * Query params: employeeId, companyId, year
  * Returns: Employee monthly breakdown and annual totals
  */
 router.get(
@@ -34,6 +35,18 @@ router.get(
     employeePayrollSummaryValidation,
     validate,
     reportController.getEmployeePayrollSummary
+);
+
+/**
+ * POST /api/v1/reports/selected-employees-summary
+ * Body: { companyId, employeeIds[], month, year }
+ * Returns: Selected employees summary with metadata and totals
+ */
+router.post(
+    '/selected-employees-summary',
+    selectedEmployeesSummaryValidation,
+    validate,
+    reportController.getSelectedEmployeesSummary
 );
 
 export default router;

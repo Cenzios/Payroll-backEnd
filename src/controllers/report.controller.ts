@@ -58,4 +58,34 @@ const getEmployeePayrollSummary = async (req: Request, res: Response): Promise<v
     }
 };
 
-export { getCompanyPayrollSummary, getEmployeePayrollSummary };
+/**
+ * Get Selected Employees Payroll Summary
+ * POST /api/v1/reports/selected-employees-summary
+ * Body: { companyId, employeeIds[], month, year }
+ */
+const getSelectedEmployeesSummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const { companyId, employeeIds, month, year } = req.body;
+
+        const data = await reportService.getSelectedEmployeesSummary(
+            userId,
+            companyId,
+            employeeIds,
+            month,
+            year
+        );
+
+        sendResponse(res, 200, true, 'Selected employees summary retrieved successfully', data);
+    } catch (error: any) {
+        const statusCode = error.statusCode || 500;
+        sendResponse(res, statusCode, false, error.message);
+    }
+};
+
+export { getCompanyPayrollSummary, getEmployeePayrollSummary, getSelectedEmployeesSummary };

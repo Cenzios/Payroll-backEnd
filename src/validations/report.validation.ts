@@ -1,4 +1,4 @@
-import { query } from 'express-validator';
+import { query, body } from 'express-validator';
 
 /**
  * Validation for Company Payroll Summary API
@@ -46,4 +46,31 @@ const employeePayrollSummaryValidation = [
         .withMessage('Year must be a valid 4-digit year'),
 ];
 
-export { companyPayrollSummaryValidation, employeePayrollSummaryValidation };
+/**
+ * Validation for Selected Employees Summary API
+ */
+const selectedEmployeesSummaryValidation = [
+    body('companyId')
+        .notEmpty()
+        .withMessage('Company ID is required')
+        .isUUID()
+        .withMessage('Company ID must be a valid UUID'),
+
+    body('employeeIds')
+        .isArray({ min: 1 })
+        .withMessage('Employee IDs must be a non-empty array'),
+
+    body('employeeIds.*')
+        .isUUID()
+        .withMessage('Each employee ID must be a valid UUID'),
+
+    body('month')
+        .isInt({ min: 1, max: 12 })
+        .withMessage('Month must be between 1 and 12'),
+
+    body('year')
+        .isInt({ min: 2000, max: 2100 })
+        .withMessage('Year must be a valid 4-digit year'),
+];
+
+export { companyPayrollSummaryValidation, employeePayrollSummaryValidation, selectedEmployeesSummaryValidation };

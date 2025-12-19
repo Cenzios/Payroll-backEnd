@@ -55,6 +55,7 @@ const getCompanyPayrollSummary = async (
     let totalNetPay = 0;
     let totalEmployeeEPF = 0;
     let totalCompanyEPFETF = 0;
+    let totalDeductions = 0;
 
     const employeeData = employees.map((employee) => {
         const salary = employee.salaries[0]; // Should only be one record per month
@@ -66,27 +67,33 @@ const getCompanyPayrollSummary = async (
 
         totalEmployees++;
 
-        // Calculate values
+        // Calculate values and round EACH value BEFORE summing to avoid precision errors
         const workingDays = salary.workingDays;
-        const basicPay = salary.basicPay;
-        const netPay = salary.netSalary;
-        const employeeEPF = salary.employeeEPF;
-        const companyEPFETF = salary.employerEPF + salary.etfAmount;
+        const grossPay = Math.round(salary.basicPay);
+        const netPay = Math.round(salary.netSalary);
+        const employeeEPF = Math.round(salary.employeeEPF);
+        const employerEPF = Math.round(salary.employerEPF);
+        const etf = Math.round(salary.etfAmount);
+        const companyEPFETF = employerEPF + etf;
+        const deductions = employeeEPF;
 
-        // Aggregate totals
-        totalGrossPay += basicPay;
+        // Aggregate totals - values are already rounded
+        totalGrossPay += grossPay;
         totalNetPay += netPay;
         totalEmployeeEPF += employeeEPF;
         totalCompanyEPFETF += companyEPFETF;
+        totalDeductions += deductions;
 
         return {
             employeeId: employee.id,  // Database UUID for fetching employee details
             employeeCode: employee.employeeId,  // Internal company ID like "E005"
             employeeName: employee.fullName,
             workingDays,
-            netPay: Math.round(netPay),
-            employeeEPF: Math.round(employeeEPF),
-            companyEPFETF: Math.round(companyEPFETF),
+            grossPay,
+            netPay,
+            deductions,
+            employeeEPF,
+            companyEPFETF,
         };
     }).filter(Boolean); // Remove null entries
 
@@ -97,10 +104,131 @@ const getCompanyPayrollSummary = async (
         employees: employeeData,
         totals: {
             totalEmployees,
-            totalGrossPay: Math.round(totalGrossPay),
-            totalNetPay: Math.round(totalNetPay),
-            totalEmployeeEPF: Math.round(totalEmployeeEPF),
-            totalCompanyEPFETF: Math.round(totalCompanyEPFETF),
+            totalGrossPay,  // Already rounded, no Math.round needed
+            totalNetPay,
+            totalDeductions,
+            totalEmployeeEPF,
+            totalCompanyEPFETF,
+        },
+    };
+};
+
+/**
+ * Get Selected Employees Payroll Summary Report
+ * Returns payroll data for selected employees only
+ */
+const getSelectedEmployeesSummary = async (
+    userId: string,
+    companyId: string,
+    employeeIds: string[],
+    month: number,
+    year: number
+) => {
+    // 1. Verify company exists and user is the owner
+    const company = await prisma.company.findUnique({
+        where: { id: companyId },
+    });
+
+    if (!company) {
+        throw new Error('Company not found');
+    }
+
+    if (company.ownerId !== userId) {
+        const error = new Error('Not authorized to access this company data') as any;
+        error.statusCode = 403;
+        throw error;
+    }
+
+    // 2. Get selected employees with their salary records for the specified month
+    const employees = await prisma.employee.findMany({
+        where: {
+            companyId,
+            id: { in: employeeIds },  // Filter by selected employee IDs
+        },
+        include: {
+            salaries: {
+                where: {
+                    month,
+                    year,
+                },
+            },
+        },
+        orderBy: { employeeId: 'asc' },
+    });
+
+    // 3. Calculate employee-level data and totals
+    let totalGrossPay = 0;
+    let totalNetPay = 0;
+    let totalEmployeeEPF = 0;
+    let totalCompanyEPFETF = 0;
+    let totalDeductions = 0;
+
+    const employeeData = employees.map((employee) => {
+        const salary = employee.salaries[0]; // Should only be one record per month
+
+        if (!salary) {
+            // Employee has no salary record for this month - still include them
+            return {
+                employeeId: employee.id,
+                employeeCode: employee.employeeId,
+                employeeName: employee.fullName,
+                workingDays: 0,
+                grossPay: 0,
+                netPay: 0,
+                deductions: 0,
+                employeeEPF: 0,
+                companyEPFETF: 0,
+            };
+        }
+
+        // Calculate values and round EACH value BEFORE summing to avoid precision errors
+        const workingDays = salary.workingDays;
+        const grossPay = Math.round(salary.basicPay);
+        const netPay = Math.round(salary.netSalary);
+        const employeeEPF = Math.round(salary.employeeEPF);
+        const employerEPF = Math.round(salary.employerEPF);
+        const etf = Math.round(salary.etfAmount);
+        const companyEPFETF = employerEPF + etf;
+        const deductions = employeeEPF;
+
+        // Aggregate totals - values are already rounded
+        totalGrossPay += grossPay;
+        totalNetPay += netPay;
+        totalEmployeeEPF += employeeEPF;
+        totalCompanyEPFETF += companyEPFETF;
+        totalDeductions += deductions;
+
+        return {
+            employeeId: employee.id,
+            employeeCode: employee.employeeId,
+            employeeName: employee.fullName,
+            workingDays,
+            grossPay,
+            netPay,
+            deductions,
+            employeeEPF,
+            companyEPFETF,
+        };
+    });
+
+    // 4. Build metadata
+    const metadata = {
+        employeeCount: employeeData.length,
+        datePeriod: `${getMonthName(month)} ${year}`,
+        department: 'ALL',  // TODO: Add department filtering if needed
+        reportType: 'Monthly Payroll Overview',
+        totalGrossPay,
+    };
+
+    return {
+        metadata,
+        employees: employeeData,
+        totals: {
+            grossPay: totalGrossPay,
+            netPay: totalNetPay,
+            deductions: totalDeductions,
+            employeeEPF: totalEmployeeEPF,
+            companyEPFETF: totalCompanyEPFETF,
         },
     };
 };
@@ -196,4 +324,4 @@ const getEmployeePayrollSummary = async (
     };
 };
 
-export { getCompanyPayrollSummary, getEmployeePayrollSummary };
+export { getCompanyPayrollSummary, getSelectedEmployeesSummary, getEmployeePayrollSummary };
