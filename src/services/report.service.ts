@@ -80,7 +80,8 @@ const getCompanyPayrollSummary = async (
         totalCompanyEPFETF += companyEPFETF;
 
         return {
-            employeeCode: employee.employeeId,
+            employeeId: employee.id,  // Database UUID for fetching employee details
+            employeeCode: employee.employeeId,  // Internal company ID like "E005"
             employeeName: employee.fullName,
             workingDays,
             netPay: Math.round(netPay),
@@ -111,6 +112,7 @@ const getCompanyPayrollSummary = async (
 const getEmployeePayrollSummary = async (
     userId: string,
     employeeId: string,
+    companyId: string,
     year: number
 ) => {
     // 1. Get employee with company info
@@ -129,37 +131,50 @@ const getEmployeePayrollSummary = async (
         throw new Error('Employee not found');
     }
 
-    // 2. Verify user owns the company
+    // 2. Verify employee belongs to the specified company
+    if (employee.companyId !== companyId) {
+        const error = new Error('Employee does not belong to the specified company') as any;
+        error.statusCode = 400;
+        throw error;
+    }
+
+    // 3. Verify user owns the company
     if (employee.company.ownerId !== userId) {
         const error = new Error('Not authorized to access this employee data') as any;
         error.statusCode = 403;
         throw error;
     }
 
-    // 3. Build monthly breakdown
+    // 4. Build monthly breakdown
     let annualWorkedDays = 0;
-    let annualGrossSalary = 0;
-    let annualNetSalary = 0;
+    let annualGrossPay = 0;
+    let annualNetPay = 0;
+    let annualDeductions = 0;
     let annualEmployeeEPF = 0;
     let annualCompanyEPFETF = 0;
 
     const monthlyBreakdown = employee.salaries.map((salary) => {
+        const grossPay = salary.basicPay;
+        const deductions = salary.employeeEPF;
+        const netPay = salary.netSalary;
         const companyEPFETF = salary.employerEPF + salary.etfAmount;
 
         // Aggregate annual totals
         annualWorkedDays += salary.workingDays;
-        annualGrossSalary += salary.basicPay;
-        annualNetSalary += salary.netSalary;
+        annualGrossPay += grossPay;
+        annualNetPay += netPay;
+        annualDeductions += deductions;
         annualEmployeeEPF += salary.employeeEPF;
         annualCompanyEPFETF += companyEPFETF;
 
         return {
             month: getMonthName(salary.month),
             workedDays: salary.workingDays,
-            basicSalary: Math.round(salary.basicPay),
+            grossPay: Math.round(grossPay),
+            netPay: Math.round(netPay),
+            deductions: Math.round(deductions),
             employeeEPF: Math.round(salary.employeeEPF),
             companyEPFETF: Math.round(companyEPFETF),
-            netPay: Math.round(salary.netSalary),
         };
     });
 
@@ -172,8 +187,9 @@ const getEmployeePayrollSummary = async (
         monthlyBreakdown,
         annualTotals: {
             workedDays: annualWorkedDays,
-            grossSalary: Math.round(annualGrossSalary),
-            netSalary: Math.round(annualNetSalary),
+            grossPay: Math.round(annualGrossPay),
+            netPay: Math.round(annualNetPay),
+            deductions: Math.round(annualDeductions),
             employeeEPF: Math.round(annualEmployeeEPF),
             companyEPFETF: Math.round(annualCompanyEPFETF),
         },

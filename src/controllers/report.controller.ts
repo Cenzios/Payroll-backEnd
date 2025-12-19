@@ -32,7 +32,7 @@ const getCompanyPayrollSummary = async (req: Request, res: Response): Promise<vo
 
 /**
  * Get Employee Payroll Summary
- * GET /api/v1/reports/employee-payroll-summary?employeeId={UUID}&year={YYYY}
+ * GET /api/v1/reports/employee-payroll-summary?employeeId={UUID}&companyId={UUID}&year={YYYY}
  */
 const getEmployeePayrollSummary = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -42,11 +42,12 @@ const getEmployeePayrollSummary = async (req: Request, res: Response): Promise<v
             return;
         }
 
-        const { employeeId, year } = req.query;
+        const { employeeId, companyId, year } = req.query;
 
         const data = await reportService.getEmployeePayrollSummary(
             userId,
             employeeId as string,
+            companyId as string,
             parseInt(year as string)
         );
 

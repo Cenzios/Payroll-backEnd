@@ -33,6 +33,12 @@ const employeePayrollSummaryValidation = [
         .isUUID()
         .withMessage('Employee ID must be a valid UUID'),
 
+    query('companyId')
+        .notEmpty()
+        .withMessage('Company ID is required')
+        .isUUID()
+        .withMessage('Company ID must be a valid UUID'),
+
     query('year')
         .notEmpty()
         .withMessage('Year is required')
