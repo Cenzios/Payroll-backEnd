@@ -172,7 +172,7 @@ const getSelectedEmployeesSummary = async (
                 employeeId: employee.id,
                 employeeCode: employee.employeeId,
                 employeeName: employee.fullName,
-                workingDays: 0,
+                workedDays: 0,
                 grossPay: 0,
                 netPay: 0,
                 deductions: 0,
@@ -182,7 +182,7 @@ const getSelectedEmployeesSummary = async (
         }
 
         // Calculate values and round EACH value BEFORE summing to avoid precision errors
-        const workingDays = salary.workingDays;
+        const workedDays = salary.workingDays;
         const grossPay = Math.round(salary.basicPay);
         const netPay = Math.round(salary.netSalary);
         const employeeEPF = Math.round(salary.employeeEPF);
@@ -202,7 +202,7 @@ const getSelectedEmployeesSummary = async (
             employeeId: employee.id,
             employeeCode: employee.employeeId,
             employeeName: employee.fullName,
-            workingDays,
+            workedDays,
             grossPay,
             netPay,
             deductions,
