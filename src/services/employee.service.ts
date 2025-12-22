@@ -98,7 +98,7 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
     });
 };
 
-const getEmployees = async (userId: string, companyId: string, page: number = 1, limit: number = 10, search: string = '') => {
+const getEmployees = async (userId: string, companyId: string, page: number = 1, limit: number = 10, search: string = '', status?: string) => {
     // Verify Ownership
     const company = await prisma.company.findFirst({
         where: { id: companyId, ownerId: userId },
@@ -109,7 +109,7 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
 
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: any = {
         companyId,
         deletedAt: null, // ✅ Filter out soft-deleted employees
         OR: [
@@ -118,6 +118,11 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
             { nic: { contains: search } },
         ]
     };
+
+    // ✅ Add Status Filter if provided
+    if (status) {
+        where.status = status;
+    }
 
     const [employees, total] = await Promise.all([
         prisma.employee.findMany({

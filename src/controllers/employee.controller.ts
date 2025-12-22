@@ -27,7 +27,7 @@ const create = async (req: Request, res: Response, next: NextFunction): Promise<
 const getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = req.user?.userId;
-        const { companyId, page, limit, search } = req.query;
+        const { companyId, page, limit, search, status } = req.query;
 
         if (!userId) {
             sendResponse(res, 401, false, 'User not authenticated');
@@ -44,7 +44,8 @@ const getAll = async (req: Request, res: Response, next: NextFunction): Promise<
             companyId as string,
             page ? parseInt(page as string) : 1,
             limit ? parseInt(limit as string) : 10,
-            search as string || ''
+            search as string || '',
+            status as string // ✅ Pass status filter
         );
         sendResponse(res, 200, true, 'Employees fetched successfully', result);
     } catch (error) {
