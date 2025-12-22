@@ -111,6 +111,7 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
 
     const where = {
         companyId,
+        deletedAt: null, // ✅ Filter out soft-deleted employees
         OR: [
             { fullName: { contains: search } },
             { employeeId: { contains: search } },
@@ -194,13 +195,12 @@ const deleteEmployee = async (userId: string, companyId: string, id: string) => 
         throw new Error('Employee not found');
     }
 
-    // Delete related salaries first (manual cascade)
-    await prisma.salary.deleteMany({
-        where: { employeeId: id },
-    });
-
-    return await prisma.employee.delete({
+    // Soft Delete (Update deletedAt timestamp)
+    return await prisma.employee.update({
         where: { id },
+        data: {
+            deletedAt: new Date(),
+        },
     });
 };
 
