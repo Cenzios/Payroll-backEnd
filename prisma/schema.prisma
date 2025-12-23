@@ -110,8 +110,9 @@ model Employee {
 
   status String @default("ACTIVE") // ACTIVE, INACTIVE
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft Delete field
 
   // Relations
   companyId String
