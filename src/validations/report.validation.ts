@@ -2,6 +2,7 @@ import { query, body } from 'express-validator';
 
 /**
  * Validation for Company Payroll Summary API
+ * Accepts date range: startMonth/startYear to endMonth/endYear
  */
 const companyPayrollSummaryValidation = [
     query('companyId')
@@ -10,17 +11,29 @@ const companyPayrollSummaryValidation = [
         .isUUID()
         .withMessage('Company ID must be a valid UUID'),
 
-    query('month')
+    query('startMonth')
         .notEmpty()
-        .withMessage('Month is required')
+        .withMessage('Start month is required')
         .isInt({ min: 1, max: 12 })
-        .withMessage('Month must be between 1 and 12'),
+        .withMessage('Start month must be between 1 and 12'),
 
-    query('year')
+    query('startYear')
         .notEmpty()
-        .withMessage('Year is required')
+        .withMessage('Start year is required')
         .isInt({ min: 2000, max: 2100 })
-        .withMessage('Year must be a valid 4-digit year'),
+        .withMessage('Start year must be a valid 4-digit year'),
+
+    query('endMonth')
+        .notEmpty()
+        .withMessage('End month is required')
+        .isInt({ min: 1, max: 12 })
+        .withMessage('End month must be between 1 and 12'),
+
+    query('endYear')
+        .notEmpty()
+        .withMessage('End year is required')
+        .isInt({ min: 2000, max: 2100 })
+        .withMessage('End year must be a valid 4-digit year'),
 ];
 
 /**
