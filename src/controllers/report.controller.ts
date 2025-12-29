@@ -9,12 +9,44 @@ import sendResponse from '../utils/responseHandler';
 const getCompanyPayrollSummary = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = req.user?.userId;
+        
+        // ✅ LOG ALL REQUEST DETAILS
+        console.log('═══════════════════════════════════════');
+        console.log('📥 Company Payroll Summary Request');
+        console.log('═══════════════════════════════════════');
+        console.log('User ID:', userId);
+        console.log('Query Params:', req.query);
+        console.log('Headers:', {
+            authorization: req.headers.authorization ? 'Present' : 'Missing',
+            contentType: req.headers['content-type'],
+            origin: req.headers.origin
+        });
+        console.log('Full URL:', req.originalUrl);
+        console.log('Method:', req.method);
+        console.log('═══════════════════════════════════════');
+        
         if (!userId) {
+            console.log('❌ No userId found');
             sendResponse(res, 401, false, 'User not authenticated');
             return;
         }
 
         const { companyId, startMonth, startYear, endMonth, endYear } = req.query;
+
+        // ✅ LOG PARSED VALUES
+        console.log('Parsed Parameters:', {
+            companyId,
+            startMonth,
+            startYear,
+            endMonth,
+            endYear,
+            types: {
+                startMonth: typeof startMonth,
+                startYear: typeof startYear,
+                endMonth: typeof endMonth,
+                endYear: typeof endYear
+            }
+        });
 
         const data = await reportService.getCompanyPayrollSummary(
             userId,
@@ -25,8 +57,13 @@ const getCompanyPayrollSummary = async (req: Request, res: Response): Promise<vo
             parseInt(endYear as string)
         );
 
+        console.log('✅ Report generated successfully');
+        console.log('═══════════════════════════════════════\n');
         sendResponse(res, 200, true, 'Company payroll summary retrieved successfully', data);
     } catch (error: any) {
+        console.log('❌ Error in getCompanyPayrollSummary:', error.message);
+        console.log('Error Stack:', error.stack);
+        console.log('═══════════════════════════════════════\n');
         const statusCode = error.statusCode || 500;
         sendResponse(res, statusCode, false, error.message);
     }
