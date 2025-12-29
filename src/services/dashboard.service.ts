@@ -1,6 +1,6 @@
 import prisma from '../config/db';
 
-const getSummary = async (userId: string) => {
+const getSummary = async (userId: string, companyId?: string) => {
     // Get Active Subscription
     const subscription = await prisma.subscription.findFirst({
         where: { userId, status: 'ACTIVE' },
@@ -11,16 +11,30 @@ const getSummary = async (userId: string) => {
         throw new Error('No active subscription found');
     }
 
-    // Get Companies owned by user
+    // Get Companies owned by user (Verify ownership if companyId is provided)
     const companies = await prisma.company.findMany({
         where: { ownerId: userId },
         select: { id: true },
     });
     const companyIds = companies.map(c => c.id);
 
+    // Filter Logic
+    let employeeFilter: any = { companyId: { in: companyIds } };
+    let salaryFilter: any = { companyId: { in: companyIds } };
+
+    if (companyId) {
+        if (!companyIds.includes(companyId)) {
+            // If requested companyId is not owned by user, return empty/error or just fallback
+            // For now, throw error for security
+            throw new Error('Company not found or access denied');
+        }
+        employeeFilter = { companyId };
+        salaryFilter = { companyId };
+    }
+
     // Stats
     const totalEmployees = await prisma.employee.count({
-        where: { companyId: { in: companyIds } },
+        where: employeeFilter,
     });
 
     // Calculate addon capacity
@@ -36,7 +50,7 @@ const getSummary = async (userId: string) => {
 
     const salaries = await prisma.salary.findMany({
         where: {
-            companyId: { in: companyIds },
+            ...salaryFilter,
             month: currentMonth,
             year: currentYear,
         },

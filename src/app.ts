@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import errorHandler from './middlewares/errorMiddleware';
+import passport from './config/passport';
 
 // Route Imports
 import authRoutes from './routes/auth.routes';
@@ -20,15 +21,16 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
-
+app.use(passport.initialize());
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/company', companyRoutes);
-app.use('/api/v1/employees', employeeRoutes);
+app.use('/api/v1/employee', employeeRoutes);
 app.use('/api/v1/salary', salaryRoutes);
 app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

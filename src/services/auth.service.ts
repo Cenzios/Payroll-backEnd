@@ -194,9 +194,62 @@ const login = async (email: string, password: string) => {
         throw new Error('Invalid credentials');
     }
 
+    // Check for active subscription
+    const subscription = await prisma.subscription.findFirst({
+        where: { userId: user.id, status: 'ACTIVE' },
+    });
+
+    const hasActivePlan = !!subscription;
+
+    console.log(`📊 Login subscription check for ${email}:`, {
+        userId: user.id,
+        hasActivePlan,
+        subscriptionId: subscription?.id || 'none'
+    });
+
     const { password: _, ...userWithoutPassword } = user;
 
-    return { user: userWithoutPassword };
+    return { user: userWithoutPassword, hasActivePlan };
 };
 
-export { startSignup, verifyEmail, setPassword, login };
+const updateProfile = async (userId: string, data: { fullName: string }) => {
+    return await prisma.user.update({
+        where: { id: userId },
+        data: { fullName: data.fullName },
+        select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+        }
+    });
+};
+
+const changePassword = async (userId: string, data: any) => {
+    const { currentPassword, newPassword } = data;
+
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+    });
+
+    if (!user || !user.password) {
+        throw new Error('User not found or password not set');
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+        throw new Error('Current password is incorrect');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+    });
+
+    return { success: true, message: 'Password updated successfully' };
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };

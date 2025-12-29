@@ -2,9 +2,10 @@ import prisma from '../config/db';
 
 interface CompanyData {
     name: string;
-    registrationNumber?: string;
+    email: string;
     address: string;
     contactNumber: string;
+    departments: string[];
 }
 
 const createCompany = async (userId: string, data: CompanyData) => {
@@ -50,17 +51,19 @@ const createCompany = async (userId: string, data: CompanyData) => {
     // 6. Create Company
     const {
         name,
-        registrationNumber,
+        email,
         address,
         contactNumber,
+        departments,
     } = data;
 
     return await prisma.company.create({
         data: {
             name,
-            registrationNumber,
+            email,
             address,
             contactNumber,
+            departments,
             ownerId: userId,
         },
     });

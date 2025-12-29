@@ -11,7 +11,9 @@ const getSummary = async (req: Request, res: Response, next: NextFunction): Prom
             return;
         }
 
-        const summary = await dashboardService.getSummary(userId);
+        const { companyId } = req.query;
+
+        const summary = await dashboardService.getSummary(userId, companyId as string);
         sendResponse(res, 200, true, 'Dashboard summary fetched', summary);
     } catch (error) {
         next(error);

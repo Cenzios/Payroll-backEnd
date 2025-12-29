@@ -5,16 +5,16 @@ interface AddonData {
     value: number;
 }
 
+// ✅ Upgrade Existing Subscription
 const upgradeSubscription = async (userId: string, newPlanId: string) => {
-    // 1. Verify New Plan Exists
     const newPlan = await prisma.plan.findUnique({
         where: { id: newPlanId },
     });
+
     if (!newPlan) {
         throw new Error('Invalid plan selected');
     }
 
-    // 2. Get Current Active Subscription
     const currentSubscription = await prisma.subscription.findFirst({
         where: {
             userId,
@@ -22,11 +22,9 @@ const upgradeSubscription = async (userId: string, newPlanId: string) => {
         },
     });
 
-    // 3. Transaction to Upgrade
-    return await prisma.$transaction(async (prisma) => {
-        // Expire current subscription if exists
+    return await prisma.$transaction(async (tx) => {
         if (currentSubscription) {
-            await prisma.subscription.update({
+            await tx.subscription.update({
                 where: { id: currentSubscription.id },
                 data: {
                     status: 'EXPIRED',
@@ -35,14 +33,13 @@ const upgradeSubscription = async (userId: string, newPlanId: string) => {
             });
         }
 
-        // Create new subscription
-        const newSubscription = await prisma.subscription.create({
+        const newSubscription = await tx.subscription.create({
             data: {
                 userId,
                 planId: newPlanId,
                 status: 'ACTIVE',
                 startDate: new Date(),
-                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Default 1 year
+                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
             },
             include: { plan: true },
         });
@@ -51,10 +48,10 @@ const upgradeSubscription = async (userId: string, newPlanId: string) => {
     });
 };
 
+// ✅ Add Addon to Active Subscription
 const addAddon = async (userId: string, data: AddonData) => {
     const { type, value } = data;
 
-    // 1. Get Active Subscription
     const subscription = await prisma.subscription.findFirst({
         where: {
             userId,
@@ -66,7 +63,6 @@ const addAddon = async (userId: string, data: AddonData) => {
         throw new Error('No active subscription found.');
     }
 
-    // 2. Create Addon
     return await prisma.subscriptionAddon.create({
         data: {
             subscriptionId: subscription.id,
@@ -76,4 +72,44 @@ const addAddon = async (userId: string, data: AddonData) => {
     });
 };
 
-export { upgradeSubscription, addAddon };
+// ✅ ✅ ✅ MAIN FIX — Subscribe User by EMAIL (NO new registration)
+const subscribeUserToPlan = async (email: string, planId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { email },
+    });
+
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    // ✅ Attach plan via real subscription system
+    const existingSubscription = await prisma.subscription.findFirst({
+        where: {
+            userId: user.id,
+            status: 'ACTIVE',
+        },
+    });
+
+    if (existingSubscription) {
+        throw new Error('User already has an active subscription');
+    }
+
+    const subscription = await prisma.subscription.create({
+        data: {
+            userId: user.id,
+            planId,
+            status: 'ACTIVE',
+            startDate: new Date(),
+            endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        },
+        include: { plan: true },
+    });
+
+    return subscription;
+};
+
+export {
+    upgradeSubscription,
+    addAddon,
+    subscribeUserToPlan, // ✅ ✅ ✅ IMPORTANT EXPORT
+};

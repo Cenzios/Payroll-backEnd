@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service';
 import sendResponse from '../utils/responseHandler';
-import { generateToken } from '../utils/tokenUtils';
+import { generateToken } from '../utils/tokenUtils'; // ✅ USE THIS
 
 const startSignup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -42,15 +42,18 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
         const { email, password } = req.body;
         const result = await authService.login(email, password);
 
-        // Generate JWT token
+        // ✅ GENERATE JWT TOKEN WITH FULL USER DATA
         const token = generateToken({
             userId: result.user.id,
-            role: result.user.role
+            role: result.user.role,
+            fullName: result.user.fullName, // ✅ ADD
+            email: result.user.email         // ✅ ADD
         });
 
         sendResponse(res, 200, true, 'Login successful', {
             user: result.user,
-            token: token
+            token: token,
+            hasActivePlan: result.hasActivePlan
         });
     } catch (error: any) {
         if (error.message === 'Invalid credentials' ||
@@ -63,4 +66,36 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
     }
 };
 
-export { startSignup, verifyEmail, setPassword, login };
+const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+        const result = await authService.updateProfile(userId, req.body);
+        sendResponse(res, 200, true, 'Profile updated successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+        const result = await authService.changePassword(userId, req.body);
+        sendResponse(res, 200, true, result.message);
+    } catch (error: any) {
+        if (error.message === 'Current password is incorrect') {
+            sendResponse(res, 400, false, error.message);
+            return;
+        }
+        next(error);
+    }
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };

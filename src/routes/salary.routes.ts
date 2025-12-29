@@ -10,6 +10,7 @@ const router = express.Router();
 // Protect all salary routes
 router.use(protect);
 
+router.post('/', calculateSalaryValidation, validate, salaryController.calculate);
 router.post('/calculate', calculateSalaryValidation, validate, salaryController.calculate);
 router.get('/history', checkPlanFeature('canViewReports'), salaryController.getHistory);
 router.get('/:id/payslip', salaryController.getPayslip);
