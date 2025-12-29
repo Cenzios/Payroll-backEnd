@@ -15,8 +15,8 @@ router.use(protect);
 
 /**
  * GET /api/v1/reports/company-payroll-summary
- * Query params: companyId, month, year
- * Returns: Company payroll summary with employee list and totals
+ * Query params: companyId, startMonth, startYear, endMonth, endYear
+ * Returns: Company payroll summary grouped by month with overall totals
  */
 router.get(
     '/company-payroll-summary',

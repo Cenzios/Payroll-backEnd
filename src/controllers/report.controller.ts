@@ -4,7 +4,7 @@ import sendResponse from '../utils/responseHandler';
 
 /**
  * Get Company Payroll Summary
- * GET /api/v1/reports/company-payroll-summary?companyId={UUID}&month={MM}&year={YYYY}
+ * GET /api/v1/reports/company-payroll-summary?companyId={UUID}&startMonth={MM}&startYear={YYYY}&endMonth={MM}&endYear={YYYY}
  */
 const getCompanyPayrollSummary = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -14,13 +14,15 @@ const getCompanyPayrollSummary = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        const { companyId, month, year } = req.query;
+        const { companyId, startMonth, startYear, endMonth, endYear } = req.query;
 
         const data = await reportService.getCompanyPayrollSummary(
             userId,
             companyId as string,
-            parseInt(month as string),
-            parseInt(year as string)
+            parseInt(startMonth as string),
+            parseInt(startYear as string),
+            parseInt(endMonth as string),
+            parseInt(endYear as string)
         );
 
         sendResponse(res, 200, true, 'Company payroll summary retrieved successfully', data);
