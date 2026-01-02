@@ -1,5 +1,4 @@
 import prisma from '../config/db';
-import { EMPLOYEE_EPF_PERCENTAGE, EMPLOYER_EPF_PERCENTAGE, ETF_PERCENTAGE } from '../constants/payroll.constants';
 
 // Helper function to get month name
 const getMonthName = (month: number): string => {
@@ -101,6 +100,7 @@ const getCompanyPayrollSummary = async (
             const grossPay = Math.round(salary.basicPay);
             const netPay = Math.round(salary.netSalary);
             const employeeEPF = Math.round(salary.employeeEPF);
+            const tax = Math.round(salary.employeeTaxAmount);
             const employerEPF = Math.round(salary.employerEPF);
             const etf = Math.round(salary.etfAmount);
             const companyEPFETF = employerEPF + etf;
@@ -117,6 +117,7 @@ const getCompanyPayrollSummary = async (
                 workingDays,
                 grossPay,
                 netPay,
+                tax,
                 employeeEPF,
                 companyEPFETF,
             };
@@ -241,10 +242,11 @@ const getSelectedEmployeesSummary = async (
         const grossPay = Math.round(salary.basicPay);
         const netPay = Math.round(salary.netSalary);
         const employeeEPF = Math.round(salary.employeeEPF);
+        const tax = Math.round(salary.employeeTaxAmount);
         const employerEPF = Math.round(salary.employerEPF);
         const etf = Math.round(salary.etfAmount);
         const companyEPFETF = employerEPF + etf;
-        const deductions = employeeEPF;
+        const deductions = employeeEPF + tax;
 
         // Aggregate totals - values are already rounded
         totalGrossPay += grossPay;
@@ -260,6 +262,7 @@ const getSelectedEmployeesSummary = async (
             workedDays,
             grossPay,
             netPay,
+            tax,
             deductions,
             employeeEPF,
             companyEPFETF,
@@ -342,7 +345,8 @@ const getEmployeePayrollSummary = async (
 
     const monthlyBreakdown = employee.salaries.map((salary) => {
         const grossPay = salary.basicPay;
-        const deductions = salary.employeeEPF;
+        const tax = salary.employeeTaxAmount;
+        const deductions = salary.employeeEPF + tax;
         const netPay = salary.netSalary;
         const companyEPFETF = salary.employerEPF + salary.etfAmount;
 
@@ -359,6 +363,7 @@ const getEmployeePayrollSummary = async (
             workedDays: salary.workingDays,
             grossPay: Math.round(grossPay),
             netPay: Math.round(netPay),
+            tax: Math.round(tax),
             deductions: Math.round(deductions),
             employeeEPF: Math.round(salary.employeeEPF),
             companyEPFETF: Math.round(companyEPFETF),
