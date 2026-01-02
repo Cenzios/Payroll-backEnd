@@ -296,7 +296,8 @@ const getEmployeePayrollSummary = async (
     userId: string,
     employeeId: string,
     companyId: string,
-    year: number
+    year: number,
+    month?: number
 ) => {
     // 1. Get employee with company info
     const employee = await prisma.employee.findUnique({
@@ -304,7 +305,10 @@ const getEmployeePayrollSummary = async (
         include: {
             company: true,
             salaries: {
-                where: { year },
+                where: {
+                    year,
+                    ...(month ? { month } : {}),
+                },
                 orderBy: { month: 'asc' },
             },
         },
