@@ -81,6 +81,7 @@ model User {
   // Relations
   subscriptions Subscription[]
   companies     Company[]
+  notifications Notification[]
 }
 
 enum Role {
@@ -137,13 +138,81 @@ model Salary {
   employerEPF Float
   etfAmount   Float
 
+  // Tax (PAYE)
+  employeeTaxAmount Float @default(0)
+
+  // Snapshot of rates used (for legal compliance and historical accuracy)
+  employeeEPFRate Decimal? @db.Decimal(5, 2)
+  employerEPFRate Decimal? @db.Decimal(5, 2)
+  etfRate         Decimal? @db.Decimal(5, 2)
+  taxConfigId     String?
+
   netSalary Float
 
   createdAt DateTime @default(now())
 
   // Relations
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  companyId  String
-  company    Company  @relation(fields: [companyId], references: [id])
+  employeeId   String
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  payrollRates PayrollRates? @relation(fields: [taxConfigId], references: [id])
+}
+
+model PayrollRates {
+  id String @id @default(uuid())
+
+  // Effective Date
+  effectiveFrom DateTime
+
+  // Tax Configuration (Monthly Basis)
+  taxFreeMonthlyLimit Decimal @db.Decimal(10, 2) // e.g. 150000
+  slab1Limit          Decimal @db.Decimal(10, 2) // e.g. 83333
+  slab1Rate           Decimal @db.Decimal(5, 2) // e.g. 6
+  slab2Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
+  slab2Rate           Decimal @db.Decimal(5, 2) // e.g. 18
+  slab3Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
+  slab3Rate           Decimal @db.Decimal(5, 2) // e.g. 24
+  slab4Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
+  slab4Rate           Decimal @db.Decimal(5, 2) // e.g. 30
+  slab5Rate           Decimal @db.Decimal(5, 2) // e.g. 36 (for remaining balance)
+
+  // EPF/ETF Configuration
+  employeeEPFRate Decimal @db.Decimal(5, 2) // e.g. 8
+  employerEPFRate Decimal @db.Decimal(5, 2) // e.g. 12
+  etfRate         Decimal @db.Decimal(5, 2) // e.g. 3
+
+  // Status
+  isActive Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  salaries Salary[]
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId  String
+  title   String
+  message String           @db.Text
+  type    NotificationType @default(INFO)
+
+  isRead    Boolean @default(false)
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isDeleted, isRead])
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
 }

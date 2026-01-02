@@ -10,7 +10,7 @@ const verifyEmailValidation = [
 ];
 
 const setPasswordValidation = [
-    body('email').isEmail().withMessage('Valid Email is required'),
+    body('signupToken').notEmpty().withMessage('Signup token is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ];
 

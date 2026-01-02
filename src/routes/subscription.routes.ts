@@ -12,6 +12,8 @@ router.post('/subscribe', subscriptionController.subscribePlan);
 router.use(protect);
 
 // These routes are protected (need login)
+router.get('/current', subscriptionController.getCurrent);
+router.post('/change-plan', subscriptionController.changePlan);
 router.put('/upgrade', subscriptionController.upgrade);
 router.post('/addon', subscriptionController.addAddon);
 

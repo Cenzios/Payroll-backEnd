@@ -13,6 +13,8 @@ import salaryRoutes from './routes/salary.routes';
 import subscriptionRoutes from './routes/subscription.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/report.routes';
+import payrollConfigRoutes from './routes/payroll-config.routes';
+import notificationRoutes from './routes/notification.routes';
 
 const app = express();
 
@@ -30,7 +32,8 @@ app.use('/api/v1/salary', salaryRoutes);
 app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/reports', reportRoutes);
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/payroll-config', payrollConfigRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

@@ -6,7 +6,7 @@ import { generateToken } from '../utils/tokenUtils'; // ✅ USE THIS
 const startSignup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const result = await authService.startSignup(req.body);
-        sendResponse(res, 200, true, result.message);
+        sendResponse(res, 200, true, result.message, { signupToken: result.signupToken });
     } catch (error) {
         next(error);
     }
@@ -16,10 +16,10 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction): Pro
     try {
         const { token } = req.query;
         const result = await authService.verifyEmail(token as string);
-        sendResponse(res, 200, true, result.message);
+        sendResponse(res, 200, true, result.message, { email: result.email });
     } catch (error: any) {
-        if (error.message === 'Invalid or expired verification token' ||
-            error.message === 'Verification token has expired. Please request a new verification email.') {
+        if (error.message === 'Invalid verification link' ||
+            error.message === 'Verification link has expired. Please sign up again.') {
             sendResponse(res, 400, false, error.message);
             return;
         }
@@ -29,8 +29,8 @@ const verifyEmail = async (req: Request, res: Response, next: NextFunction): Pro
 
 const setPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { email, password } = req.body;
-        const result = await authService.setPassword(email, password);
+        const { signupToken, password } = req.body;
+        const result = await authService.setPassword(signupToken, password);
         sendResponse(res, 200, true, result.message);
     } catch (error) {
         next(error);

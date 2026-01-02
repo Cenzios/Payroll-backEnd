@@ -48,6 +48,46 @@ export const addAddon = async (req: Request, res: Response, next: NextFunction):
     }
 };
 
+// ✅ Get Current Subscription Details
+export const getCurrent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const details = await subscriptionService.getCurrentSubscriptionDetails(userId);
+        sendResponse(res, 200, true, 'Subscription details fetched', details);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ✅ Change Plan
+export const changePlan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        const { newPlanId } = req.body;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        if (!newPlanId) {
+            sendResponse(res, 400, false, 'newPlanId is required');
+            return;
+        }
+
+        const result = await subscriptionService.changePlan(userId, newPlanId);
+        sendResponse(res, 200, true, 'Plan changed successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const subscribePlan = async (req: Request, res: Response) => {
     try {
         const { email, planId } = req.body;
