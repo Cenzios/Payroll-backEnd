@@ -128,6 +128,42 @@ export const activatePending = async (req: Request, res: Response, next: NextFun
     }
 };
 
+// ✅ Create PayHere Payment Session
+export const createPaymentSession = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const session = await subscriptionService.createPaymentSession(userId);
+        sendResponse(res, 200, true, 'Payment session created', session);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ✅ Handle PayHere Notify Webhook
+export const handlePayHereNotify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        console.log('🔔 Received PayHere Notify:', req.body);
+
+        // This endpoint logic is moved to service
+        await subscriptionService.processPayHereNotify(req.body);
+
+        // Always return 200 to PayHere to stop retries if hash was valid
+        res.status(200).send('OK');
+    } catch (error: any) {
+        console.error('❌ Error in PayHere Notify:', error.message);
+        // Still return 200/OK if it's a known error to stop retries, 
+        // OR return error if you want PayHere to retry. 
+        // Usually better to return 200 if we logged the error.
+        res.status(200).send('Error Processed');
+    }
+};
+
 export const subscribePlan = async (req: Request, res: Response) => {
     try {
         const { email, planId } = req.body;

@@ -7,10 +7,17 @@ import { requireEmailVerified, requirePasswordSet } from '../middlewares/signupF
 const router = express.Router();
 
 // ✅ Public route - Subscribe (legacy, will be replaced by select-plan)
+// ✅ Public route - PayHere Notify Webhook
+router.post('/payhere/notify', subscriptionController.handlePayHereNotify);
+
+// ✅ Public route - Subscribe (legacy, will be replaced by select-plan)
 router.post('/subscribe', subscriptionController.subscribePlan);
 
 // NOW apply protection to routes below
 router.use(protect);
+
+// ✅ Create PayHere Payment Session
+router.post('/create-payment-session', subscriptionController.createPaymentSession);
 
 // ✅ New secure plan selection (requires email verified + password set)
 router.post(
@@ -18,9 +25,6 @@ router.post(
     requireEmailVerified,
     subscriptionController.selectPlan
 );
-
-// ✅ Temporary activation endpoint (until payment integration)
-router.post('/activate', subscriptionController.activatePending);
 
 // Existing protected routes
 router.get('/current', subscriptionController.getCurrent);

@@ -1,4 +1,5 @@
 import prisma from '../config/db';
+import { generateCheckoutHash, generateNotifyHash } from '../utils/payhere';
 
 interface AddonData {
     type: string;
@@ -368,6 +369,111 @@ const activateSubscription = async (userId: string) => {
     });
 };
 
+// ✅ Create PayHere Payment Session
+const createPaymentSession = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId }
+    });
+
+    if (!user) throw new Error('User not found');
+
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'PENDING_ACTIVATION'
+        },
+        include: { plan: true }
+    });
+
+    if (!subscription) {
+        throw new Error('No pending subscription found to pay for.');
+    }
+
+    const { plan } = subscription;
+    const amount = plan.price;
+    const currency = process.env.PAYHERE_CURRENCY || 'LKR';
+    const merchantId = process.env.PAYHERE_MERCHANT_ID || '';
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
+
+    // Generate PayHere Hash
+    const hash = generateCheckoutHash(
+        merchantId,
+        subscription.id,
+        amount,
+        currency,
+        merchantSecret
+    );
+
+    // Prepare PayHere payload
+    const nameParts = user.fullName.split(' ');
+    const firstName = nameParts[0] || 'User';
+    const lastName = nameParts.slice(1).join(' ') || 'Customer';
+
+    return {
+        sandbox: true,
+        merchant_id: merchantId,
+        return_url: process.env.PAYHERE_RETURN_URL,
+        cancel_url: process.env.PAYHERE_CANCEL_URL,
+        notify_url: process.env.PAYHERE_NOTIFY_URL,
+        order_id: subscription.id,
+        items: `${plan.name} Plan Subscription`,
+        currency: currency,
+        amount: amount,
+        first_name: firstName,
+        last_name: lastName,
+        email: user.email,
+        phone: '0771234567',
+        address: 'No 1, Galle Road',
+        city: 'Colombo',
+        country: 'Sri Lanka',
+        hash: hash
+    };
+};
+
+// ✅ Process PayHere Notify Webhook
+const processPayHereNotify = async (data: any) => {
+    const {
+        merchant_id,
+        order_id,
+        payhere_amount,
+        payhere_currency,
+        status_code,
+        md5sig
+    } = data;
+
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
+
+    // 1. Verify Hash
+    const localHash = generateNotifyHash(
+        merchant_id,
+        order_id,
+        payhere_amount,
+        payhere_currency,
+        status_code,
+        merchantSecret
+    );
+
+    if (localHash !== md5sig) {
+        console.error(`❌ PayHere Hash Verification Failed for order ${order_id}`);
+        throw new Error('Invalid payment signature');
+    }
+
+    // 2. Update Subscription Status
+    const status = status_code === '2' ? 'ACTIVE' : 'FAILED';
+    const activatedAt = status === 'ACTIVE' ? new Date() : null;
+
+    console.log(`📡 PayHere Status Update for ${order_id}: ${status} (Code: ${status_code})`);
+
+    return await prisma.subscription.update({
+        where: { id: order_id },
+        data: {
+            status,
+            activatedAt
+        },
+        include: { plan: true }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
@@ -376,4 +482,6 @@ export {
     activateSubscription,
     getCurrentSubscriptionDetails,
     changePlan,
+    createPaymentSession,
+    processPayHereNotify,
 };
