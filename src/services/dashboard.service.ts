@@ -64,12 +64,14 @@ const getSummary = async (userId: string, companyId?: string) => {
 
     const totalSalaryPaidThisMonth = salaries.reduce((sum, s) => sum + s.netSalary, 0);
     const totalEmployeeEPF = salaries.reduce((sum, s) => sum + s.employeeEPF, 0);
+    const totalCompanyEPF = salaries.reduce((sum, s) => sum + s.employerEPF, 0);
     const totalCompanyETF = salaries.reduce((sum, s) => sum + s.etfAmount, 0);
 
     return {
         totalEmployees,
         totalSalaryPaidThisMonth,
         totalEmployeeEPF,
+        totalCompanyEPF,
         totalCompanyETF,
         planName: subscription.plan.name,
         maxEmployees,
