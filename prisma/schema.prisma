@@ -23,17 +23,28 @@ model Plan {
 }
 
 model Subscription {
-  id        String   @id @default(uuid())
-  userId    String
-  planId    String
-  status    String // ACTIVE, EXPIRED, CANCELLED
-  startDate DateTime
-  endDate   DateTime
-  createdAt DateTime @default(now())
+  id          String             @id @default(uuid())
+  userId      String
+  planId      String
+  status      SubscriptionStatus @default(PENDING_ACTIVATION)
+  selectedAt  DateTime?
+  activatedAt DateTime?
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime           @default(now())
 
   user   User                @relation(fields: [userId], references: [id])
   plan   Plan                @relation(fields: [planId], references: [id])
   addons SubscriptionAddon[]
+}
+
+enum SubscriptionStatus {
+  DRAFT
+  PENDING_ACTIVATION
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  FAILED
 }
 
 model SubscriptionAddon {
