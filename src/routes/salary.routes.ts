@@ -4,11 +4,13 @@ import { calculateSalaryValidation } from '../validations/salary.validation';
 import validate from '../middlewares/validateRequest';
 import { protect } from '../middlewares/authMiddleware';
 import { checkPlanFeature } from '../middlewares/planMiddleware';
+import { requireActiveSubscription } from '../middlewares/signupFlowMiddleware';
 
 const router = express.Router();
 
-// Protect all salary routes
+// All salary routes require authentication and ACTIVE subscription
 router.use(protect);
+router.use(requireActiveSubscription);
 
 router.post('/', calculateSalaryValidation, validate, salaryController.calculate);
 router.post('/calculate', calculateSalaryValidation, validate, salaryController.calculate);

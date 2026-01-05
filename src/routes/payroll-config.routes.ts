@@ -1,11 +1,13 @@
 import express from 'express';
 import * as payrollConfigController from '../controllers/payroll-config.controller';
 import { protect } from '../middlewares/authMiddleware';
+import { requireActiveSubscription } from '../middlewares/signupFlowMiddleware';
 
 const router = express.Router();
 
-// All routes require authentication
+// All payroll config routes require authentication and ACTIVE subscription
 router.use(protect);
+router.use(requireActiveSubscription);
 
 // POST /api/v1/payroll-config - Create new payroll rates configuration
 router.post('/', payrollConfigController.create);

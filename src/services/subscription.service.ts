@@ -79,18 +79,21 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
     const subscription = await prisma.subscription.findFirst({
         where: {
             userId,
-            status: 'ACTIVE',
+            status: { in: ['ACTIVE', 'PENDING_ACTIVATION'] },
         },
         include: {
             plan: true,
             addons: true,
         },
+        orderBy: {
+            createdAt: 'desc'
+        }
     });
 
     console.log('✅ Found subscription:', subscription);
 
     if (!subscription) {
-        throw new Error('No active subscription found.');
+        throw new Error('No active or pending subscription found.');
     }
 
     // Calculate total allowed employees
@@ -188,7 +191,7 @@ const changePlan = async (userId: string, newPlanId: string) => {
     });
 };
 
-// ✅ ✅ ✅ MAIN FIX — Subscribe User by EMAIL (NO new registration)
+// ✅ Subscribe User by EMAIL (creates PENDING_ACTIVATION subscription)
 const subscribeUserToPlan = async (email: string, planId: string) => {
     const user = await prisma.user.findUnique({
         where: { email },
@@ -198,23 +201,34 @@ const subscribeUserToPlan = async (email: string, planId: string) => {
         throw new Error('User not found');
     }
 
-    // ✅ Attach plan via real subscription system
+    // Validate plan exists
+    const plan = await prisma.plan.findUnique({
+        where: { id: planId }
+    });
+
+    if (!plan) {
+        throw new Error('Invalid plan selected');
+    }
+
+    // Check for existing subscription
     const existingSubscription = await prisma.subscription.findFirst({
         where: {
             userId: user.id,
-            status: 'ACTIVE',
+            status: { in: ['PENDING_ACTIVATION', 'ACTIVE'] },
         },
     });
 
     if (existingSubscription) {
-        throw new Error('User already has an active subscription');
+        throw new Error('User already has a subscription');
     }
 
+    // Create subscription with PENDING_ACTIVATION status (not ACTIVE)
     const subscription = await prisma.subscription.create({
         data: {
             userId: user.id,
             planId,
-            status: 'ACTIVE',
+            status: 'PENDING_ACTIVATION',
+            selectedAt: new Date(),
             startDate: new Date(),
             endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         },
@@ -224,10 +238,142 @@ const subscribeUserToPlan = async (email: string, planId: string) => {
     return subscription;
 };
 
+// ✅ Select Plan during Signup (creates PENDING_ACTIVATION subscription)
+const selectPlan = async (userId: string, planId: string) => {
+    // Validate user exists and has completed required steps
+    const user = await prisma.user.findUnique({
+        where: { id: userId }
+    });
+
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    // 🔍 Context Detection: Is this a signup flow or an account management flow?
+    const activeSubscription = await prisma.subscription.findFirst({
+        where: { userId, status: 'ACTIVE' }
+    });
+
+    const isSignupFlow = !activeSubscription;
+
+    if (isSignupFlow) {
+        // 🛡️ SIGNUP FLOW RULES
+        if (!user.isEmailVerified) {
+            throw new Error('Please verify your email before selecting a plan');
+        }
+
+        // Only enforce password check for email users (Google users have no password)
+        if (user.password && !user.isPasswordSet) {
+            throw new Error('Please set your password before selecting a plan');
+        }
+
+        console.log(`🛡️ Signup plan selection for user ${userId}: Checks passed.`);
+    } else {
+        // 🔄 ACCOUNT MANAGEMENT FLOW (Logged-in)
+        console.log(`🔄 Logged-in plan change for user ${userId}: Skipping signup guards.`);
+    }
+
+    // Validate plan exists
+    const plan = await prisma.plan.findUnique({
+        where: { id: planId }
+    });
+
+    if (!plan) {
+        throw new Error('Invalid plan selected');
+    }
+
+    // 🔍 Find existing PENDING_ACTIVATION intent to reuse/update
+    const existingPending = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'PENDING_ACTIVATION'
+        }
+    });
+
+    if (existingPending) {
+        // ✅ Update existing pending intent
+        const updated = await prisma.subscription.update({
+            where: { id: existingPending.id },
+            data: {
+                planId,
+                selectedAt: new Date()
+            },
+            include: { plan: true }
+        });
+
+        console.log(`✅ Updated existing pending subscription ${updated.id} to new plan ${planId}`);
+
+        return {
+            subscriptionId: updated.id,
+            status: updated.status,
+            plan: {
+                id: plan.id,
+                name: plan.name,
+                price: plan.price,
+                maxEmployees: plan.maxEmployees,
+                maxCompanies: plan.maxCompanies
+            }
+        };
+    }
+
+    // ✅ Create new subscription with PENDING_ACTIVATION status
+    // (Preserves any ACTIVE subscription until this one is activated)
+    const subscription = await prisma.subscription.create({
+        data: {
+            userId,
+            planId,
+            status: 'PENDING_ACTIVATION',
+            selectedAt: new Date(),
+            startDate: new Date(),
+            endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+        },
+        include: { plan: true }
+    });
+
+    console.log(`✅ Created new pending subscription ${subscription.id} for user ${userId}`);
+
+    return {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        plan: {
+            id: plan.id,
+            name: plan.name,
+            price: plan.price,
+            maxEmployees: plan.maxEmployees,
+            maxCompanies: plan.maxCompanies
+        }
+    };
+};
+
+// ✅ Activate Subscription (temporary - until payment integration)
+const activateSubscription = async (userId: string) => {
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'PENDING_ACTIVATION'
+        }
+    });
+
+    if (!subscription) {
+        throw new Error('No pending subscription found');
+    }
+
+    return await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+            status: 'ACTIVE',
+            activatedAt: new Date()
+        },
+        include: { plan: true }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
     subscribeUserToPlan,
-    getCurrentSubscriptionDetails, // ✅ Exported
-    changePlan, // ✅ Exported
+    selectPlan,
+    activateSubscription,
+    getCurrentSubscriptionDetails,
+    changePlan,
 };

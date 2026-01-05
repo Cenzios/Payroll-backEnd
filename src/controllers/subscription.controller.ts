@@ -88,6 +88,46 @@ export const changePlan = async (req: Request, res: Response, next: NextFunction
     }
 };
 
+// ✅ Select Plan (New Secure Endpoint)
+export const selectPlan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        const { planId } = req.body;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        if (!planId) {
+            sendResponse(res, 400, false, 'planId is required');
+            return;
+        }
+
+        const result = await subscriptionService.selectPlan(userId, planId);
+        sendResponse(res, 200, true, 'Plan selected successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ✅ Activate Pending Subscription (Temporary - until payment integration)
+export const activatePending = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const result = await subscriptionService.activateSubscription(userId);
+        sendResponse(res, 200, true, 'Subscription activated successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const subscribePlan = async (req: Request, res: Response) => {
     try {
         const { email, planId } = req.body;

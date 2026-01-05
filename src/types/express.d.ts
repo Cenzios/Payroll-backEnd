@@ -5,6 +5,7 @@ declare global {
                 userId: string;
                 role: string;
             };
+            subscription?: any;
         }
     }
 }

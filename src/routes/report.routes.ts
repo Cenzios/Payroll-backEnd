@@ -7,11 +7,13 @@ import {
 } from '../validations/report.validation';
 import validate from '../middlewares/validateRequest';
 import { protect } from '../middlewares/authMiddleware';
+import { requireActiveSubscription } from '../middlewares/signupFlowMiddleware';
 
 const router = express.Router();
 
-// Protect all report routes - JWT authentication required
+// All report routes require authentication and ACTIVE subscription
 router.use(protect);
+router.use(requireActiveSubscription);
 
 /**
  * GET /api/v1/reports/company-payroll-summary
