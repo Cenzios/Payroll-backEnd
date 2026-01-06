@@ -444,7 +444,8 @@ const processPayHereNotify = async (data: any) => {
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
 
     // 1. Verify Hash
-    const localHash = generateNotifyHash(
+    // Strategy A: Verify with raw amount (as received)
+    let localHash = generateNotifyHash(
         merchant_id,
         order_id,
         payhere_amount,
@@ -453,9 +454,31 @@ const processPayHereNotify = async (data: any) => {
         merchantSecret
     );
 
+    // Strategy B: Verify with decimal formatted amount (PayHere standard 2 decimals)
     if (localHash !== md5sig) {
-        console.error(`❌ PayHere Hash Verification Failed for order ${order_id}`);
-        throw new Error('Invalid payment signature');
+        console.warn(`⚠️ First hash attempt failed for ${order_id}. Retrying with decimal formatting...`);
+
+        const formattedAmount = Number(payhere_amount).toFixed(2);
+        const retryHash = generateNotifyHash(
+            merchant_id,
+            order_id,
+            formattedAmount,
+            payhere_currency,
+            status_code,
+            merchantSecret
+        );
+
+        if (retryHash === md5sig) {
+            localHash = retryHash; // Success on second attempt
+            console.log(`✅ Hash verified with formatted amount: ${formattedAmount}`);
+        } else {
+            // Debug Logs (Be careful not to expose secrets in prod logs if possible, but essential here)
+            console.error(`❌ PayHere Hash Mismatch for order ${order_id}`);
+            console.error(`   Received: ${md5sig}`);
+            console.error(`   Computed (Raw): ${localHash}`);
+            console.error(`   Computed (Fmt): ${retryHash}`);
+            throw new Error('Invalid payment signature');
+        }
     }
 
     // 2. Update Subscription Status
