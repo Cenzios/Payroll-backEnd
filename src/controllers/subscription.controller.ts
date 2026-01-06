@@ -58,6 +58,11 @@ export const getCurrent = async (req: Request, res: Response, next: NextFunction
             return;
         }
 
+        // ✅ PREVENT CACHING (Fix for 304 polling issue)
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         const details = await subscriptionService.getCurrentSubscriptionDetails(userId);
         sendResponse(res, 200, true, 'Subscription details fetched', details);
     } catch (error) {
