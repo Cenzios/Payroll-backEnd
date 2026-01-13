@@ -60,10 +60,22 @@ export const generatePayHerePayload = async (intentId: string) => {
     const merchantId = process.env.PAYHERE_MERCHANT_ID || '';
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
 
-    // Generate Hash
+    // 1. Generate Unique PayHere Order ID
+    const payhereOrderId = `PH_${intent.id}`;
+
+    // 2. Update Intent with this Order ID (to link it later)
+    await prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: {
+            payhereOrderId,
+            status: 'REDIRECTED'
+        }
+    });
+
+    // 3. Generate Hash using the PayHere Order ID (NOT the intent ID)
     const hash = generateCheckoutHash(
         merchantId,
-        intent.id, // Order ID = Intent ID
+        payhereOrderId,
         intent.amount,
         intent.currency,
         merchantSecret
@@ -75,20 +87,22 @@ export const generatePayHerePayload = async (intentId: string) => {
     const firstName = nameParts[0] || 'User';
     const lastName = nameParts.slice(1).join(' ') || 'Customer';
 
+    console.log(`✅ Generated PayHere Payload for Intent: ${intent.id} (Order ID: ${payhereOrderId})`);
+
     return {
         sandbox: true,
         merchant_id: merchantId,
         return_url: process.env.PAYHERE_RETURN_URL, // Frontend success page
         cancel_url: process.env.PAYHERE_CANCEL_URL, // Frontend cancel page
         notify_url: process.env.PAYHERE_NOTIFY_URL, // Backend webhook
-        order_id: intent.id,
+        order_id: payhereOrderId, // Use the generated PH_ ID
         items: `Subscription Plan: ${intent.planId}`,
         currency: intent.currency,
         amount: intent.amount,
         first_name: firstName,
         last_name: lastName,
         email: user.email,
-        phone: '0000000000', // Optional or fetch if available
+        phone: '0000000000',
         address: 'Digital Subscription',
         city: 'Colombo',
         country: 'Sri Lanka',
@@ -109,7 +123,7 @@ export const updateIntentStatus = async (intentId: string, status: any, payhereO
     return intent;
 };
 
-// ✅ Process Webhook Logic (Moved from subscription service)
+// ✅ Process Webhook Logic (Atomic Transaction)
 export const processPayHereNotify = async (data: any) => {
     const {
         merchant_id,
@@ -119,6 +133,8 @@ export const processPayHereNotify = async (data: any) => {
         status_code,
         md5sig
     } = data;
+
+    console.log(`POST /notify hit with Order ID: ${order_id} | Status: ${status_code}`);
 
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
 
@@ -132,7 +148,6 @@ export const processPayHereNotify = async (data: any) => {
         merchantSecret
     );
 
-    // Strategy B: Verify with decimal formatted amount
     if (localHash !== md5sig) {
         const formattedAmount = Number(payhere_amount).toFixed(2);
         const retryHash = generateNotifyHash(
@@ -147,13 +162,27 @@ export const processPayHereNotify = async (data: any) => {
         if (retryHash === md5sig) {
             localHash = retryHash;
         } else {
-            console.error(`❌ PayHere Hash Mismatch for intent ${order_id}`);
+            console.error(`❌ PayHere Hash Mismatch for Order ${order_id}`);
             throw new Error('Invalid payment signature');
         }
     }
 
-    // 2. Determine Status
-    // PayHere Status 2 = Success. Others (0, -1, -2, -3) are pending/failed/canceled.
+    // 2. Find Intent by PayHere Order ID
+    const intent = await prisma.paymentIntent.findUnique({
+        where: { payhereOrderId: order_id }
+    });
+
+    if (!intent) {
+        console.error(`❌ PaymentIntent NOT FOUND for PayHere Order ID: ${order_id}`);
+        throw new Error('Payment Intent not found for this order.');
+    }
+
+    if (intent.status === 'SUCCEEDED') {
+        console.log(`ℹ️ Intent ${intent.id} already SUCCEEDED. Ignoring duplicate notify.`);
+        return intent;
+    }
+
+    // 3. Determine Status
     let intentStatus: any = 'FAILED';
     if (status_code === '2') {
         intentStatus = 'SUCCEEDED';
@@ -163,9 +192,62 @@ export const processPayHereNotify = async (data: any) => {
         intentStatus = 'CANCELED';
     }
 
-    // 3. Update Intent
-    const updatedIntent = await updateIntentStatus(order_id, intentStatus, order_id);
-    console.log(`✅ Intent ${order_id} updated to ${intentStatus}`);
+    // 4. Atomic Update (Intent Status + Subscription Activation)
+    return await prisma.$transaction(async (tx) => {
+        // Update Intent
+        const updatedIntent = await tx.paymentIntent.update({
+            where: { id: intent.id },
+            data: { status: intentStatus }
+        });
+        console.log(`✅ Intent ${intent.id} updated to ${intentStatus}`);
 
-    return updatedIntent;
+        // If Succeeded, Activate Subscription
+        if (intentStatus === 'SUCCEEDED') {
+            const { userId, planId } = intent;
+
+            // Handle Upgrade: Cancel existing active if different plan
+            const currentActive = await tx.subscription.findFirst({
+                where: { userId, status: 'ACTIVE' }
+            });
+
+            if (currentActive && currentActive.planId !== planId) {
+                await tx.subscription.update({
+                    where: { id: currentActive.id },
+                    data: { status: 'CANCELLED', endDate: new Date() }
+                });
+            }
+
+            // Find Pending Subscription
+            let subscription = await tx.subscription.findFirst({
+                where: { userId, planId, status: 'PENDING_ACTIVATION' },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            if (!subscription) {
+                // If missing, create new
+                subscription = await tx.subscription.create({
+                    data: {
+                        userId,
+                        planId,
+                        status: 'PENDING_ACTIVATION',
+                        startDate: new Date(),
+                        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+                    },
+                    include: { plan: true }
+                });
+            }
+
+            // ACTIVATE
+            await tx.subscription.update({
+                where: { id: subscription.id },
+                data: {
+                    status: 'ACTIVE',
+                    activatedAt: new Date()
+                }
+            });
+            console.log(`✅ Subscription ${subscription.id} ACTIVATED for User ${userId}`);
+        }
+
+        return updatedIntent;
+    });
 };

@@ -57,9 +57,9 @@ export const handlePayHereNotify = async (req: Request, res: Response, next: Nex
         const intent = await paymentService.processPayHereNotify(req.body);
 
         // 2. Activate Subscription if Verified
+        // Note: Activation is now handled ATOMICALLY inside processPayHereNotify
         if (intent.status === 'SUCCEEDED') {
-            console.log(`🚀 Intent ${intent.id} Succeeded. Activating Subscription...`);
-            await subscriptionService.activateSubscriptionByIntent(intent);
+            console.log(`🚀 Intent ${intent.id} Succeeded & Processed.`);
         }
 
         // Return 200 to PayHere purely to acknowledge receipt
