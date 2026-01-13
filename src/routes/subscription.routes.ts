@@ -16,8 +16,10 @@ router.post('/subscribe', subscriptionController.subscribePlan);
 // NOW apply protection to routes below
 router.use(protect);
 
-// ✅ Create PayHere Payment Session
-router.post('/create-payment-session', subscriptionController.createPaymentSession);
+// ❌ DISABLED: Legacy PayHere Payment Session
+router.post('/create-payment-session', (req, res) => {
+    res.status(410).json({ success: false, message: 'This endpoint is deprecated. Use Payment Intents.' });
+});
 
 // ✅ New secure plan selection (requires email verified + password set)
 router.post(

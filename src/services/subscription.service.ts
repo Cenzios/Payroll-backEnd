@@ -497,12 +497,75 @@ const processPayHereNotify = async (data: any) => {
     });
 };
 
+// ✅ Activate Subscription using Payment Intent
+const activateSubscriptionByIntent = async (intent: any) => {
+    const { userId, planId, payhereOrderId } = intent;
+
+    console.log(`🚀 Activating subscription for user ${userId} via Intent ${intent.id}`);
+
+    // Check for existing ACTIVE subscription to handle UPGRADES
+    const currentActive = await prisma.subscription.findFirst({
+        where: { userId, status: 'ACTIVE' }
+    });
+
+    if (currentActive) {
+        if (currentActive.planId === planId) {
+            console.log('User already has this plan active. Extending or Ignoring.');
+            // TODO: Extend logic if needed. For now, valid payment = logic success.
+            return currentActive;
+        }
+
+        // It's an upgrade/downgrade -> Cancel old one
+        console.log(`🔄 Upgrading from ${currentActive.planId} to ${planId}. Cancelling old subscription ${currentActive.id}...`);
+        await prisma.subscription.update({
+            where: { id: currentActive.id },
+            data: { status: 'CANCELLED', endDate: new Date() }
+        });
+    }
+
+    // Find the PENDING subscription for this user and plan
+    let subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            planId,
+            status: 'PENDING_ACTIVATION'
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // If no pending subscription found, create one
+    if (!subscription) {
+        console.log('Creating NEW PENDING subscription based on successful intent.');
+        subscription = await prisma.subscription.create({
+            data: {
+                userId,
+                planId,
+                status: 'PENDING_ACTIVATION',
+                startDate: new Date(),
+                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+            },
+            include: { plan: true }
+        });
+    }
+
+    // Activate it
+    console.log(`✅ Activating subscription ${subscription.id}`);
+    return await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+            status: 'ACTIVE',
+            activatedAt: new Date(),
+        }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
     subscribeUserToPlan,
     selectPlan,
     activateSubscription,
+    activateSubscriptionByIntent, // Exported
     getCurrentSubscriptionDetails,
     changePlan,
     createPaymentSession,

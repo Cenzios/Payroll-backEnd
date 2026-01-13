@@ -90,9 +90,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  subscriptions Subscription[]
-  companies     Company[]
-  notifications Notification[]
+  subscriptions  Subscription[]
+  companies      Company[]
+  notifications  Notification[]
+  paymentIntents PaymentIntent[]
 }
 
 enum Role {
@@ -226,4 +227,32 @@ enum NotificationType {
   INFO
   WARNING
   ERROR
+}
+
+model PaymentIntent {
+  id             String              @id @default(uuid())
+  userId         String
+  planId         String
+  amount         Float
+  currency       String              @default("LKR")
+  gateway        String              @default("PAYHERE")
+  status         PaymentIntentStatus @default(CREATED)
+  payhereOrderId String?             @unique
+  expiresAt      DateTime?
+  metadata       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  REDIRECTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  CANCELED
 }
