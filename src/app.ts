@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/report.routes';
 import payrollConfigRoutes from './routes/payroll-config.routes';
 import notificationRoutes from './routes/notification.routes';
+import paymentRoutes from './routes/payment.routes';
 
 const app = express();
 
@@ -34,7 +35,9 @@ app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/payroll-config', payrollConfigRoutes);
+app.use('/api/v1/payroll-config', payrollConfigRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/payments', paymentRoutes);
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

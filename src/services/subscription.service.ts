@@ -497,12 +497,72 @@ const processPayHereNotify = async (data: any) => {
     });
 };
 
+// ✅ Activate Subscription using Payment Intent
+const activateSubscriptionByIntent = async (intent: any) => {
+    const { userId, planId, payhereOrderId } = intent;
+
+    console.log(`🚀 Activating subscription for user ${userId} via Intent ${intent.id}`);
+
+    // Find the PENDING subscription for this user and plan
+    // Ideally, the intent might capture the subscriptionId in metadata?
+    // If not, we find the latest PENDING one.
+    let subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            planId,
+            status: 'PENDING_ACTIVATION'
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // If no pending subscription found, specifically check if we have one that matched the time
+    // Or create a new one? Requirements said "Activate".
+    if (!subscription) {
+        console.warn(`⚠️ No PENDING subscription found for User ${userId} Plan ${planId}. Checking for recent DRAFT or creating new?`);
+        // Fallback: If intent succeeded, we MUST give them the plan.
+        // Check if there is already an ACTIVE one?
+        const active = await prisma.subscription.findFirst({
+            where: { userId, status: 'ACTIVE' }
+        });
+
+        if (active && active.planId === planId) {
+            console.log('User already has this plan active. Extending or Ignoring.');
+            // Logic to extend? For now, just return.
+            return active;
+        }
+
+        // Create a new active subscription if none exists
+        console.log('Creating NEW ACTIVE subscription based on successful intent.');
+        subscription = await prisma.subscription.create({
+            data: {
+                userId,
+                planId,
+                status: 'PENDING_ACTIVATION', // Will update immediately below
+                startDate: new Date(),
+                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+            },
+            include: { plan: true }
+        });
+    }
+
+    // Activate it
+    return await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+            status: 'ACTIVE',
+            activatedAt: new Date(),
+            // Store payment proof if possible?
+        }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
     subscribeUserToPlan,
     selectPlan,
     activateSubscription,
+    activateSubscriptionByIntent, // Exported
     getCurrentSubscriptionDetails,
     changePlan,
     createPaymentSession,
