@@ -235,9 +235,9 @@ model PaymentIntent {
   planId         String
   amount         Float
   currency       String              @default("LKR")
-  gateway        String              @default("PAYHERE")
+  gateway        String              @default("STRIPE")
   status         PaymentIntentStatus @default(CREATED)
-  payhereOrderId String?             @unique
+  paymentOrderId String?             @unique
   expiresAt      DateTime?
   metadata       Json?
 
