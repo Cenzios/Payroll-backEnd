@@ -19,8 +19,9 @@ export const createIntent = async (req: Request, res: Response, next: NextFuncti
             return;
         }
 
-        const intent = await paymentService.createIntent(userId, planId, parseFloat(amount), currency);
-        sendResponse(res, 201, true, 'Payment Intent Created', intent);
+        // Returns { clientSecret, intent }
+        const result = await paymentService.createIntent(userId, planId, parseFloat(amount), currency);
+        sendResponse(res, 201, true, 'Payment Intent Created', result);
     } catch (error) {
         next(error);
     }
@@ -37,37 +38,18 @@ export const getIntent = async (req: Request, res: Response, next: NextFunction)
     }
 };
 
-// ✅ Get PayHere Payload for Intent
-export const getPayHerePayload = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// ✅ Handle Stripe Webhook
+export const handleStripeWebhook = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
-        const payload = await paymentService.generatePayHerePayload(id);
-        sendResponse(res, 200, true, 'PayHere Payload Generated', payload);
-    } catch (error) {
-        next(error);
-    }
-};
+        const signature = req.headers['stripe-signature'] as string;
 
-// ✅ Handle PayHere Webhook
-export const handlePayHereNotify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        console.log('🔔 Received PayHere Notify (Intent System):', req.body);
+        // req.body is a Buffer because of express.raw()
+        await paymentService.handleStripeWebhook(signature, req.body);
 
-        // 1. Verify & Update Intent
-        const intent = await paymentService.processPayHereNotify(req.body);
-
-        // 2. Activate Subscription if Verified
-        // Note: Activation is now handled ATOMICALLY inside processPayHereNotify
-        if (intent.status === 'SUCCEEDED') {
-            console.log(`🚀 Intent ${intent.id} Succeeded & Processed.`);
-        }
-
-        // Return 200 to PayHere purely to acknowledge receipt
-        res.status(200).send('OK');
+        res.json({ received: true });
     } catch (error: any) {
-        console.error('❌ Error in PayHere Notify:', error.message);
-        // Return 200 to stop PayHere retries if it's a logic error (hash mismatch etc)
-        // If it's a transient system error, maybe 500? But usually 200 is safest to stop loops.
-        res.status(200).send('Error Processed');
+        console.error('❌ Stripe Webhook Error:', error.message);
+        res.status(400).send(`Webhook Error: ${error.message}`);
     }
 };
+

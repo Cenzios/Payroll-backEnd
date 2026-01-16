@@ -22,6 +22,10 @@ const app = express();
 // Middleware
 app.use(helmet());
 app.use(cors());
+
+// ✅ Stripe Raw Body Parser (MUST BE BEFORE express.json)
+app.use('/api/v1/payments/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
