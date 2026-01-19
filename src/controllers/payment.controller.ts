@@ -40,16 +40,38 @@ export const getIntent = async (req: Request, res: Response, next: NextFunction)
 
 // ✅ Handle Stripe Webhook
 export const handleStripeWebhook = async (req: Request, res: Response): Promise<void> => {
+    // 🔥 STEP 1: Confirm webhook endpoint is being hit at all
+    console.log('🔥 STRIPE WEBHOOK HIT');
+
     try {
         const signature = req.headers['stripe-signature'] as string;
 
-        // req.body is a Buffer because of express.raw()
+        if (!signature) {
+            console.error('❌ Missing Stripe signature header');
+            res.status(400).send('Missing stripe-signature header');
+            return;
+        }
+
+        // req.body MUST be a Buffer (express.raw)
+        console.log('🧾 Webhook raw body length:', req.body?.length);
+
+        // 🔄 Process webhook (verify signature + activate subscription)
         await paymentService.handleStripeWebhook(signature, req.body);
 
+        console.log('✅ Stripe webhook processed successfully');
         res.json({ received: true });
-    } catch (error: any) {
-        console.error('❌ Stripe Webhook Error:', error.message);
-        res.status(400).send(`Webhook Error: ${error.message}`);
+
+    } catch (err: any) {
+        // ❌ STEP 2: Explicit signature verification failure log
+        console.error('❌ Stripe webhook failed');
+        console.error('❌ Error message:', err.message);
+
+        // Very important for debugging in production
+        if (err.type) {
+            console.error('❌ Stripe error type:', err.type);
+        }
+
+        res.status(400).send(`Webhook Error: ${err.message}`);
     }
 };
 
