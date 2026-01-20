@@ -118,12 +118,15 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
     return {
         planId: subscription.plan.id,
         planName: subscription.plan.name,
-        pricePerEmployee: subscription.plan.price,
+        pricePerEmployee: subscription.plan.employeePrice, // Use new field
+        registrationFee: subscription.plan.registrationFee, // Add registration fee
         maxEmployees: planLimit,
         usedEmployees,
         totalAllowedEmployees,
         nextBillingDate: subscription.endDate,
         subscriptionId: subscription.id,
+        description: subscription.plan.description,
+        features: subscription.plan.features,
         status: subscription.status,
     };
 };
@@ -310,9 +313,12 @@ const selectPlan = async (userId: string, planId: string) => {
             plan: {
                 id: plan.id,
                 name: plan.name,
-                price: plan.price,
+                price: plan.employeePrice, // Use employeePrice as the primary individual price
+                registrationFee: plan.registrationFee,
                 maxEmployees: plan.maxEmployees,
-                maxCompanies: plan.maxCompanies
+                maxCompanies: plan.maxCompanies,
+                description: plan.description,
+                features: plan.features
             }
         };
     }
@@ -339,9 +345,12 @@ const selectPlan = async (userId: string, planId: string) => {
         plan: {
             id: plan.id,
             name: plan.name,
-            price: plan.price,
+            price: plan.employeePrice,
+            registrationFee: plan.registrationFee,
             maxEmployees: plan.maxEmployees,
-            maxCompanies: plan.maxCompanies
+            maxCompanies: plan.maxCompanies,
+            description: plan.description,
+            features: plan.features
         }
     };
 };
@@ -559,6 +568,18 @@ const activateSubscriptionByIntent = async (intent: any) => {
     });
 };
 
+// ✅ Get All Plans
+const getAllPlans = async () => {
+    const plans = await prisma.plan.findMany({
+        orderBy: { registrationFee: 'asc' }
+    });
+
+    return plans.map(plan => ({
+        ...plan,
+        features: plan.features
+    }));
+};
+
 export {
     upgradeSubscription,
     addAddon,
@@ -570,4 +591,5 @@ export {
     changePlan,
     createPaymentSession,
     processPayHereNotify,
+    getAllPlans, // Exported
 };

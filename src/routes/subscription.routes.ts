@@ -10,6 +10,9 @@ const router = express.Router();
 // ✅ Public route - PayHere Notify Webhook
 router.post('/payhere/notify', subscriptionController.handlePayHereNotify);
 
+// ✅ Public route - Get all plans
+router.get('/', subscriptionController.getAllPlans);
+
 // ✅ Public route - Subscribe (legacy, will be replaced by select-plan)
 router.post('/subscribe', subscriptionController.subscribePlan);
 

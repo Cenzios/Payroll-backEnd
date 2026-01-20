@@ -11,13 +11,16 @@ datasource db {
 }
 
 model Plan {
-  id           String   @id @default(uuid())
-  name         String // Free, Professional, Enterprise
-  price        Float
-  maxEmployees Int
-  maxCompanies Int
-  features     Json
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  name            String // Free, Professional, Enterprise
+  price           Float // This can be renamed or used as total price for legacy
+  employeePrice   Float    @default(0)
+  registrationFee Float    @default(0)
+  maxEmployees    Int
+  maxCompanies    Int
+  description     String   @default("")
+  features        Json
+  createdAt       DateTime @default(now())
 
   subscriptions Subscription[]
 }
