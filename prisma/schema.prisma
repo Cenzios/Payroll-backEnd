@@ -23,6 +23,7 @@ model Plan {
   createdAt       DateTime @default(now())
 
   subscriptions Subscription[]
+  invoices      Invoice[]
 }
 
 model Subscription {
@@ -36,9 +37,10 @@ model Subscription {
   endDate     DateTime
   createdAt   DateTime           @default(now())
 
-  user   User                @relation(fields: [userId], references: [id])
-  plan   Plan                @relation(fields: [planId], references: [id])
-  addons SubscriptionAddon[]
+  user     User                @relation(fields: [userId], references: [id])
+  plan     Plan                @relation(fields: [planId], references: [id])
+  addons   SubscriptionAddon[]
+  invoices Invoice[]
 }
 
 enum SubscriptionStatus {
@@ -97,6 +99,7 @@ model User {
   companies      Company[]
   notifications  Notification[]
   paymentIntents PaymentIntent[]
+  invoices       Invoice[]
 }
 
 enum Role {
@@ -247,7 +250,8 @@ model PaymentIntent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  invoices Invoice[]
 }
 
 enum PaymentIntentStatus {
@@ -258,4 +262,42 @@ enum PaymentIntentStatus {
   FAILED
   EXPIRED
   CANCELED
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  userId           String        @map("user_id")
+  subscriptionId   String        @map("subscription_id")
+  planId           String        @map("plan_id")
+  billingType      BillingType   @map("billing_type")
+  billingMonth     String        @map("billing_month")
+  employeeCount    Int           @map("employee_count")
+  pricePerEmployee Float         @map("price_per_employee")
+  registrationFee  Float         @map("registration_fee")
+  totalAmount      Float         @map("total_amount")
+  status           InvoiceStatus @default(PENDING)
+  paymentIntentId  String?       @map("payment_intent_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  paidAt    DateTime? @map("paid_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id])
+  subscription  Subscription   @relation(fields: [subscriptionId], references: [id])
+  plan          Plan           @relation(fields: [planId], references: [id])
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id])
+
+  @@map("invoice")
+}
+
+enum BillingType {
+  REGISTRATION
+  MONTHLY
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
 }

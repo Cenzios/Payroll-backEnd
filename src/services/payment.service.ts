@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 export const createIntent = async (
     userId: string,
     planId: string,
-    amount: number,
+    requestedAmount: number, // We verify this against Invoice
     currency: string = 'LKR',
     metadata: any = {}
 ) => {
@@ -22,12 +22,31 @@ export const createIntent = async (
         throw new Error('User not found');
     }
 
-    // 1. Create Internal Intent Record
+    // 🧾 1. Find Pending Invoice (Single Source of Truth)
+    const invoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            planId,
+            status: 'PENDING'
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    if (!invoice) {
+        throw new Error('No pending invoice found. Please select a plan first.');
+    }
+
+    console.log(`🧾 Found Pending Invoice ${invoice.id}, Amount: ${invoice.totalAmount}`);
+
+    // Use Invoice amount, ignore requestedAmount (or validate)
+    const finalAmount = invoice.totalAmount;
+
+    // 2. Create Internal Intent Record
     const intent = await prisma.paymentIntent.create({
         data: {
             userId,
             planId,
-            amount,
+            amount: finalAmount,
             currency,
             metadata,
             status: 'CREATED',
@@ -35,21 +54,28 @@ export const createIntent = async (
         }
     });
 
-    // 2. Create Stripe Payment Intent
+    // 🔗 3. Link Invoice to Payment Intent
+    await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { paymentIntentId: intent.id }
+    });
+
+    // 4. Create Stripe Payment Intent
     const stripeIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Stripe expects cents
+        amount: Math.round(finalAmount * 100), // Stripe expects cents
         currency,
         metadata: {
             userId,
             planId,
-            internalIntentId: intent.id
+            internalIntentId: intent.id,
+            invoiceId: invoice.id // Good for tracking in Stripe Dashboard
         },
         automatic_payment_methods: {
             enabled: true,
         },
     });
 
-    // 3. Update Internal Intent with Stripe ID
+    // 5. Update Internal Intent with Stripe ID
     const updatedIntent = await prisma.paymentIntent.update({
         where: { id: intent.id },
         data: {
@@ -137,6 +163,24 @@ const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
             data: { status: 'SUCCEEDED' }
         });
         console.log(`✅ Intent ${intent.id} updated to SUCCEEDED`);
+
+        // 🧾 UPDATE INVOICE STATUS
+        const invoice = await tx.invoice.findFirst({
+            where: { paymentIntentId: intent.id }
+        });
+
+        if (invoice) {
+            await tx.invoice.update({
+                where: { id: invoice.id },
+                data: {
+                    status: 'PAID',
+                    paidAt: new Date()
+                }
+            });
+            console.log(`🧾 Invoice ${invoice.id} marked as PAID`);
+        } else {
+            console.warn(`⚠️ No invoice found linked to payment intent ${intent.id}`);
+        }
 
         // Activate Subscription
         const { userId, planId } = intent;

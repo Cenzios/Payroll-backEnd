@@ -307,6 +307,46 @@ const selectPlan = async (userId: string, planId: string) => {
 
         console.log(`✅ Updated existing pending subscription ${updated.id} to new plan ${planId}`);
 
+        // 🧾 INVOICE LOGIC (Update existing invoice)
+        if (isSignupFlow) {
+            const existingInvoice = await prisma.invoice.findFirst({
+                where: {
+                    subscriptionId: updated.id,
+                    billingType: 'REGISTRATION',
+                    status: 'PENDING'
+                }
+            });
+
+            if (existingInvoice) {
+                await prisma.invoice.update({
+                    where: { id: existingInvoice.id },
+                    data: {
+                        planId: planId,
+                        registrationFee: plan.registrationFee,
+                        totalAmount: plan.registrationFee,
+                        pricePerEmployee: plan.employeePrice
+                    }
+                });
+                console.log(`🧾 Updated REGISTRATION invoice for subscription ${updated.id}`);
+            } else {
+                await prisma.invoice.create({
+                    data: {
+                        userId,
+                        subscriptionId: updated.id,
+                        planId,
+                        billingType: 'REGISTRATION',
+                        billingMonth: new Date().toISOString().slice(0, 7),
+                        employeeCount: 0,
+                        pricePerEmployee: plan.employeePrice,
+                        registrationFee: plan.registrationFee,
+                        totalAmount: plan.registrationFee,
+                        status: 'PENDING'
+                    }
+                });
+                console.log(`🧾 Created REGISTRATION invoice for subscription ${updated.id}`);
+            }
+        }
+
         return {
             subscriptionId: updated.id,
             status: updated.status,
@@ -338,6 +378,25 @@ const selectPlan = async (userId: string, planId: string) => {
     });
 
     console.log(`✅ Created new pending subscription ${subscription.id} for user ${userId}`);
+
+    // 🧾 INVOICE LOGIC (Create new invoice)
+    if (isSignupFlow) {
+        await prisma.invoice.create({
+            data: {
+                userId,
+                subscriptionId: subscription.id,
+                planId,
+                billingType: 'REGISTRATION',
+                billingMonth: new Date().toISOString().slice(0, 7),
+                employeeCount: 0,
+                pricePerEmployee: plan.employeePrice,
+                registrationFee: plan.registrationFee,
+                totalAmount: plan.registrationFee,
+                status: 'PENDING'
+            }
+        });
+        console.log(`🧾 Created REGISTRATION invoice for subscription ${subscription.id}`);
+    }
 
     return {
         subscriptionId: subscription.id,
@@ -580,6 +639,64 @@ const getAllPlans = async () => {
     }));
 };
 
+// ✅ Generate Monthly Invoice
+const generateMonthlyInvoice = async (userId: string) => {
+    // 1. Get Active Subscription
+    const subscription = await prisma.subscription.findFirst({
+        where: { userId, status: 'ACTIVE' },
+        include: { plan: true }
+    });
+
+    if (!subscription) {
+        throw new Error('No active subscription found to generate invoice.');
+    }
+
+    // 2. Count Active Employees across all user's companies
+    const employeeCount = await prisma.employee.count({
+        where: {
+            company: {
+                ownerId: userId
+            },
+            status: 'ACTIVE'
+        }
+    });
+
+    const billingMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const pricePerEmployee = subscription.plan.employeePrice;
+    const totalAmount = employeeCount * pricePerEmployee;
+
+    console.log(`🧾 Generating Monthly Invoice for ${userId}. Employees: ${employeeCount}, Total: ${totalAmount}`);
+
+    // 3. Create Invoice (Check for existing first to avoid duplicates)
+    const existingInvoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            subscriptionId: subscription.id,
+            billingType: 'MONTHLY',
+            billingMonth
+        }
+    });
+
+    if (existingInvoice) {
+        return existingInvoice;
+    }
+
+    return await prisma.invoice.create({
+        data: {
+            userId,
+            subscriptionId: subscription.id,
+            planId: subscription.planId,
+            billingType: 'MONTHLY',
+            billingMonth,
+            employeeCount,
+            pricePerEmployee,
+            registrationFee: 0,
+            totalAmount,
+            status: 'PENDING'
+        }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
@@ -591,5 +708,7 @@ export {
     changePlan,
     createPaymentSession,
     processPayHereNotify,
-    getAllPlans, // Exported
+    getAllPlans,
+    generateMonthlyInvoice, // Exported
 };
+
