@@ -194,3 +194,11 @@ export const subscribePlan = async (req: Request, res: Response) => {
         });
     }
 };
+export const getAllPlans = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const plans = await subscriptionService.getAllPlans();
+        sendResponse(res, 200, true, 'Plans fetched successfully', plans);
+    } catch (error) {
+        next(error);
+    }
+};
