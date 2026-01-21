@@ -48,7 +48,20 @@ const createCompany = async (userId: string, data: CompanyData) => {
         );
     }
 
-    // 6. Create Company
+    // 6. Idempotency Check (Prevent duplicates on retry)
+    const existingCompany = await prisma.company.findFirst({
+        where: {
+            ownerId: userId,
+            name: data.name
+        }
+    });
+
+    if (existingCompany) {
+        console.log(`ℹ️ Company "${data.name}" already exists for user ${userId}. Returning existing record.`);
+        return existingCompany;
+    }
+
+    // 7. Create Company
     const {
         name,
         email,
