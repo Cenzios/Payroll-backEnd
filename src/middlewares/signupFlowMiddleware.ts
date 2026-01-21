@@ -102,7 +102,11 @@ export const requireActiveSubscription = async (req: Request, res: Response, nex
         const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
 
         if (status === 'BLOCKED' && isWriteOperation) {
-            sendResponse(res, 403, false, message || 'Subscription access is blocked due to unpaid invoices.');
+            res.status(403).json({
+                success: false,
+                code: 'SUBSCRIPTION_BLOCKED',
+                message: message || 'Subscription access is blocked. Please renew your plan.',
+            });
             return;
         }
 

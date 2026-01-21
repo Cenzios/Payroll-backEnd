@@ -75,3 +75,20 @@ export const handleStripeWebhook = async (req: Request, res: Response): Promise<
     }
 };
 
+
+// ✅ Renew Monthly Subscription
+export const renewMonthlySubscription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const result = await paymentService.renewMonthlySubscription(userId);
+        sendResponse(res, 201, true, 'Renewal Payment Intent Created', result);
+    } catch (error) {
+        next(error);
+    }
+};
