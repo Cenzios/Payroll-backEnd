@@ -709,6 +709,47 @@ export {
     createPaymentSession,
     processPayHereNotify,
     getAllPlans,
-    generateMonthlyInvoice, // Exported
+    generateMonthlyInvoice,
+    getSubscriptionAccessStatus
+};
+
+// ✅ Check Subscription Access Status
+const getSubscriptionAccessStatus = async (userId: string): Promise<{ status: 'ACTIVE' | 'BLOCKED', message?: string }> => {
+    // 1. Check for Pending/Failed REGISTRATION Invoice
+    const registrationInvoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            billingType: 'REGISTRATION',
+            status: { in: ['PENDING', 'FAILED'] }
+        }
+    });
+
+    if (registrationInvoice) {
+        return {
+            status: 'BLOCKED',
+            message: 'Registration fee payment is pending.'
+        };
+    }
+
+    // 2. Check for Pending/Failed MONTHLY Invoice
+    // We only care if there is ANY unpaid monthly invoice. 
+    // Usually one is enough to block.
+    const pendingMonthlyInvoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            billingType: 'MONTHLY',
+            status: { in: ['PENDING', 'FAILED'] }
+        }
+    });
+
+    if (pendingMonthlyInvoice) {
+        return {
+            status: 'BLOCKED',
+            message: 'Monthly subscription payment is pending.'
+        };
+    }
+
+    // 3. Default to ACTIVE
+    return { status: 'ACTIVE' };
 };
 
