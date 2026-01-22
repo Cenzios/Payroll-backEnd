@@ -641,18 +641,21 @@ const getAllPlans = async () => {
 
 // ✅ Generate Monthly Invoice
 const generateMonthlyInvoice = async (userId: string) => {
-    // 1. Get Active Subscription
+    // 1. Get Active Subscription with Add-ons
     const subscription = await prisma.subscription.findFirst({
         where: { userId, status: 'ACTIVE' },
-        include: { plan: true }
+        include: {
+            plan: true,
+            addons: true // ✅ Include Add-ons
+        }
     });
 
     if (!subscription) {
         throw new Error('No active subscription found to generate invoice.');
     }
 
-    // 2. Count Active Employees across all user's companies
-    const employeeCount = await prisma.employee.count({
+    // 2. Count Active Employees across all user's companies (Base Count)
+    const baseEmployeeCount = await prisma.employee.count({
         where: {
             company: {
                 ownerId: userId
@@ -661,11 +664,19 @@ const generateMonthlyInvoice = async (userId: string) => {
         }
     });
 
+    // 3. Calculate Add-on Extra Employee Count
+    const addonExtraCount = subscription.addons
+        .filter(addon => addon.type === 'EMPLOYEE_EXTRA')
+        .reduce((sum, addon) => sum + (addon.value || 0), 0);
+
+    const effectiveEmployeeCount = baseEmployeeCount + addonExtraCount;
     const billingMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const pricePerEmployee = subscription.plan.employeePrice;
-    const totalAmount = employeeCount * pricePerEmployee;
 
-    console.log(`🧾 Generating Monthly Invoice for ${userId}. Employees: ${employeeCount}, Total: ${totalAmount}`);
+    // ✅ Calculate Total with Add-ons
+    const totalAmount = effectiveEmployeeCount * pricePerEmployee;
+
+    console.log(`🧾 Generating Monthly Invoice for ${userId}. Base Employees: ${baseEmployeeCount}, Addon Extra: ${addonExtraCount}, Total Amount: ${totalAmount}`);
 
     // 3. Create Invoice (Check for existing first to avoid duplicates)
     const existingInvoice = await prisma.invoice.findFirst({
@@ -688,10 +699,10 @@ const generateMonthlyInvoice = async (userId: string) => {
             planId: subscription.planId,
             billingType: 'MONTHLY',
             billingMonth,
-            employeeCount,
+            employeeCount: baseEmployeeCount, // Store base count
             pricePerEmployee,
             registrationFee: 0,
-            totalAmount,
+            totalAmount, // Calculated with addons
             status: 'PENDING'
         }
     });
