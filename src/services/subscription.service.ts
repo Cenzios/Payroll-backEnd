@@ -105,6 +105,35 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
 
     const totalAllowedEmployees = planLimit + addonLimit;
 
+    // 📅 DYNAMIC NEXT BILLING DATE LOGIC (Monthly)
+    const activatedDate = subscription.activatedAt || subscription.startDate;
+    const billingDay = activatedDate.getDate();
+
+    // Check for the most recent MONTHLY invoice
+    const latestMonthlyInvoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            billingType: 'MONTHLY'
+        },
+        orderBy: {
+            billingMonth: 'desc'
+        }
+    });
+
+    let nextBillingDate: Date;
+    if (latestMonthlyInvoice) {
+        // Example: billingMonth is "2026-01". Next is 2026-02.
+        const [year, month] = latestMonthlyInvoice.billingMonth.split('-').map(Number);
+        // Billing month is 1-indexed (Jan=1), but Date month is 0-indexed (Jan=0)
+        // new Date(year, month, day) will automatically move to next month
+        // e.g. new Date(2026, 1, 22) -> Feb 22, 2026
+        nextBillingDate = new Date(year, month, billingDay);
+    } else {
+        // No monthly invoice yet? Show first monthly billing date (activated + 1 month)
+        nextBillingDate = new Date(activatedDate);
+        nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    }
+
     // Count currently used employees across all user's companies
     const usedEmployees = await prisma.employee.count({
         where: {
@@ -123,7 +152,7 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
         maxEmployees: planLimit,
         usedEmployees,
         totalAllowedEmployees,
-        nextBillingDate: subscription.endDate,
+        nextBillingDate: nextBillingDate, // Now dynamic monthly
         subscriptionId: subscription.id,
         description: subscription.plan.description,
         features: subscription.plan.features,
@@ -708,6 +737,35 @@ const generateMonthlyInvoice = async (userId: string) => {
     });
 };
 
+// ✅ Get Active Subscription (Simplified for Add-on Modal)
+const getActiveSubscription = async (userId: string) => {
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'ACTIVE'
+        },
+        include: {
+            plan: {
+                select: {
+                    employeePrice: true
+                }
+            }
+        }
+    });
+
+    if (!subscription) {
+        throw new Error('No active subscription found.');
+    }
+
+    return {
+        subscription: {
+            plan: {
+                employeePrice: subscription.plan.employeePrice
+            }
+        }
+    };
+};
+
 export {
     upgradeSubscription,
     addAddon,
@@ -721,7 +779,8 @@ export {
     processPayHereNotify,
     getAllPlans,
     generateMonthlyInvoice,
-    getSubscriptionAccessStatus
+    getSubscriptionAccessStatus,
+    getActiveSubscription
 };
 
 // ✅ Check Subscription Access Status
