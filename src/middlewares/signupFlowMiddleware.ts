@@ -86,22 +86,40 @@ export const requireSubscription = async (req: Request, res: Response, next: Nex
 // Check subscription status and enforce strict payment blocking
 import { getSubscriptionAccessStatus } from '../services/subscription.service';
 
-export const requireActiveSubscription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const requireActiveSubscription = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    console.log('══════════════════════════════════════');
+    console.log('🔥 requireActiveSubscription HIT');
+    console.log('➡️ METHOD:', req.method);
+    console.log('➡️ URL:', req.originalUrl);
+
     try {
         const userId = req.user?.userId;
+        console.log('👤 USER ID:', userId);
 
         if (!userId) {
-            sendResponse(res, 401, false, 'User not authenticated');
+            console.log('❌ NO USER ID IN REQUEST');
+            res.status(401).json({ success: false, message: 'User not authenticated' });
             return;
         }
 
-        // 1. Check Access Status (Computed based on invoices)
+        // 1️⃣ Check computed subscription access status
+        console.log('🔍 Checking subscription access status...');
         const { status, message } = await getSubscriptionAccessStatus(userId);
+        console.log('📦 COMPUTED ACCESS STATUS:', status);
+        if (message) console.log('💬 STATUS MESSAGE:', message);
 
-        // 2. Enforce Blocking on Write Operations
+        // 2️⃣ Determine write operation
         const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+        console.log('✍️ IS WRITE OPERATION:', isWriteOperation);
 
+        // 3️⃣ Enforce strict blocking
         if (status === 'BLOCKED' && isWriteOperation) {
+            console.log('⛔ BLOCKING REQUEST DUE TO UNPAID INVOICE');
+
             res.status(403).json({
                 success: false,
                 code: 'SUBSCRIPTION_BLOCKED',
@@ -110,14 +128,13 @@ export const requireActiveSubscription = async (req: Request, res: Response, nex
             return;
         }
 
-        // 3. Populate req.subscription (Best Effort)
-        // We find the most relevant subscription (ACTIVE or PENDING/EXPIRED if that's what we have)
-        // so controllers can still access plan details if needed (e.g. for read-only displays).
+        console.log('✅ ACCESS ALLOWED');
+
+        // 4️⃣ Attach subscription (best-effort)
+        console.log('🔗 Fetching subscription record...');
         const subscription = await prisma.subscription.findFirst({
             where: {
                 userId,
-                // If blocked, they might be technically 'ACTIVE' in DB but unpaid, or 'EXPIRED'.
-                // We broaden the search to include statuses that might validly exist for a user who is "Blocked" but exists.
                 status: { in: ['ACTIVE', 'PENDING_ACTIVATION', 'EXPIRED', 'FAILED'] }
             },
             include: {
@@ -129,15 +146,22 @@ export const requireActiveSubscription = async (req: Request, res: Response, nex
         });
 
         if (!subscription) {
-            // Strictly speaking, if they have no subscription record at all, they shouldn't access anything.
-            sendResponse(res, 403, false, 'No subscription found.');
+            console.log('❌ NO SUBSCRIPTION RECORD FOUND');
+            res.status(403).json({ success: false, message: 'No subscription found.' });
             return;
         }
 
-        // Attach subscription to request
+        console.log('📄 SUBSCRIPTION FOUND:', {
+            id: subscription.id,
+            status: subscription.status,
+            plan: subscription.plan?.name
+        });
+
         req.subscription = subscription;
+        console.log('➡️ Passing control to next middleware/controller');
         next();
     } catch (error) {
+        console.error('💥 ERROR IN requireActiveSubscription:', error);
         next(error);
     }
 };
