@@ -83,34 +83,85 @@ export const requireSubscription = async (req: Request, res: Response, next: Nex
 };
 
 // Check subscription is ACTIVE
-export const requireActiveSubscription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// Check subscription status and enforce strict payment blocking
+import { getSubscriptionAccessStatus } from '../services/subscription.service';
+
+export const requireActiveSubscription = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    console.log('══════════════════════════════════════');
+    console.log('🔥 requireActiveSubscription HIT');
+    console.log('➡️ METHOD:', req.method);
+    console.log('➡️ URL:', req.originalUrl);
+
     try {
         const userId = req.user?.userId;
+        console.log('👤 USER ID:', userId);
 
         if (!userId) {
-            sendResponse(res, 401, false, 'User not authenticated');
+            console.log('❌ NO USER ID IN REQUEST');
+            res.status(401).json({ success: false, message: 'User not authenticated' });
             return;
         }
 
+        // 1️⃣ Check computed subscription access status
+        console.log('🔍 Checking subscription access status...');
+        const { status, message } = await getSubscriptionAccessStatus(userId);
+        console.log('📦 COMPUTED ACCESS STATUS:', status);
+        if (message) console.log('💬 STATUS MESSAGE:', message);
+
+        // 2️⃣ Determine write operation
+        const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
+        console.log('✍️ IS WRITE OPERATION:', isWriteOperation);
+
+        // 3️⃣ Enforce strict blocking
+        if (status === 'BLOCKED' && isWriteOperation) {
+            console.log('⛔ BLOCKING REQUEST DUE TO UNPAID INVOICE');
+
+            res.status(403).json({
+                success: false,
+                code: 'SUBSCRIPTION_BLOCKED',
+                message: message || 'Subscription access is blocked. Please renew your plan.',
+            });
+            return;
+        }
+
+        console.log('✅ ACCESS ALLOWED');
+
+        // 4️⃣ Attach subscription (best-effort)
+        console.log('🔗 Fetching subscription record...');
         const subscription = await prisma.subscription.findFirst({
             where: {
                 userId,
-                status: 'ACTIVE'
+                status: { in: ['ACTIVE', 'PENDING_ACTIVATION', 'EXPIRED', 'FAILED'] }
             },
             include: {
                 plan: true
+            },
+            orderBy: {
+                createdAt: 'desc'
             }
         });
 
         if (!subscription) {
-            sendResponse(res, 403, false, 'Please activate your subscription to continue');
+            console.log('❌ NO SUBSCRIPTION RECORD FOUND');
+            res.status(403).json({ success: false, message: 'No subscription found.' });
             return;
         }
 
-        // Attach subscription to request for use in controllers
+        console.log('📄 SUBSCRIPTION FOUND:', {
+            id: subscription.id,
+            status: subscription.status,
+            plan: subscription.plan?.name
+        });
+
         req.subscription = subscription;
+        console.log('➡️ Passing control to next middleware/controller');
         next();
     } catch (error) {
+        console.error('💥 ERROR IN requireActiveSubscription:', error);
         next(error);
     }
 };

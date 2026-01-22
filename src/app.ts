@@ -33,6 +33,8 @@ app.use(morgan('dev'));
 app.use(passport.initialize());
 // Routes
 app.use('/api/v1/auth', authRoutes);
+// Routes
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/company', companyRoutes);
 app.use('/api/v1/employee', employeeRoutes);
 app.use('/api/v1/salary', salaryRoutes);
@@ -40,10 +42,10 @@ app.use('/api/v1/subscription', subscriptionRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/payroll-config', payrollConfigRoutes);
-app.use('/api/v1/payroll-config', payrollConfigRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/plans', planRoutes);
+
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

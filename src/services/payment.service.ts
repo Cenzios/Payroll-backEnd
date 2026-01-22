@@ -228,3 +228,73 @@ const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
         console.log(`✅ Subscription ${subscription.id} ACTIVATED for User ${userId}`);
     });
 };
+
+// ✅ Renew Monthly Subscription (Generate Intent)
+export const renewMonthlySubscription = async (userId: string) => {
+    // 1. Find Pending Request (MONTHLY or REGISTRATION)
+    const invoice = await prisma.invoice.findFirst({
+        where: {
+            userId,
+            billingType: { in: ['MONTHLY', 'REGISTRATION'] }, // Handle both blocking types
+            status: { in: ['PENDING', 'FAILED'] }
+        },
+        orderBy: { createdAt: 'desc' },
+        include: { plan: true }
+    });
+
+    if (!invoice) {
+        throw new Error('No pending blocking invoice found.');
+    }
+
+    // 2. Calculate Amount (Double Check)
+    const amount = invoice.totalAmount;
+
+    console.log(`🔄 Renewing Monthly Invoice ${invoice.id}, Amount: ${amount}`);
+
+    // 3. Create Internal Intent
+    const intent = await prisma.paymentIntent.create({
+        data: {
+            userId,
+            planId: invoice.planId,
+            amount,
+            currency: 'LKR', // Default
+            status: 'CREATED',
+            gateway: 'STRIPE'
+        }
+    });
+
+    // 4. Link Invoice
+    await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { paymentIntentId: intent.id }
+    });
+
+    // 5. Create Stripe Intent
+    const stripeIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        currency: 'LKR',
+        metadata: {
+            userId,
+            planId: invoice.planId,
+            internalIntentId: intent.id,
+            invoiceId: invoice.id,
+            type: 'RENEWAL'
+        },
+        automatic_payment_methods: { enabled: true }
+    });
+
+    // 6. Update Internal Intent
+    const updatedIntent = await prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: {
+            paymentOrderId: stripeIntent.id,
+            status: 'PROCESSING'
+        }
+    });
+
+    return {
+        clientSecret: stripeIntent.client_secret,
+        intent: updatedIntent,
+        invoice
+    };
+};

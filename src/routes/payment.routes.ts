@@ -17,4 +17,7 @@ router.post('/intents', paymentController.createIntent);
 // Get Intent Status
 router.get('/intents/:id', paymentController.getIntent);
 
+// Renew Monthly Subscription
+router.post('/renew-monthly', paymentController.renewMonthlySubscription);
+
 export default router;
