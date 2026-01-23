@@ -202,3 +202,18 @@ export const getAllPlans = async (req: Request, res: Response, next: NextFunctio
         next(error);
     }
 };
+export const getActive = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const details = await subscriptionService.getActiveSubscription(userId);
+        sendResponse(res, 200, true, 'Active subscription fetched', details);
+    } catch (error) {
+        next(error);
+    }
+};

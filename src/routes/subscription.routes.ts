@@ -33,6 +33,7 @@ router.post(
 
 // Existing protected routes
 router.get('/current', subscriptionController.getCurrent);
+router.get('/active', subscriptionController.getActive);
 router.post('/change-plan', subscriptionController.changePlan);
 router.put('/upgrade', subscriptionController.upgrade);
 router.post('/addon', subscriptionController.addAddon);
