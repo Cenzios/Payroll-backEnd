@@ -217,3 +217,20 @@ export const getActive = async (req: Request, res: Response, next: NextFunction)
         next(error);
     }
 };
+
+// ✅ Cancel Subscription
+export const cancelSubscription = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'User not authenticated');
+            return;
+        }
+
+        const result = await subscriptionService.cancelSubscription(userId);
+        sendResponse(res, 200, true, 'Subscription cancelled successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};

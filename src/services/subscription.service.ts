@@ -786,6 +786,31 @@ const getActiveSubscription = async (userId: string) => {
     };
 };
 
+// ✅ Cancel Subscription
+const cancelSubscription = async (userId: string) => {
+    const subscription = await prisma.subscription.findFirst({
+        where: {
+            userId,
+            status: 'ACTIVE'
+        }
+    });
+
+    if (!subscription) {
+        throw new Error('No active subscription found to cancel.');
+    }
+
+    console.log(`🚫 Cancelling subscription ${subscription.id} for user ${userId}`);
+
+    return await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+            status: 'CANCELLED',
+            endDate: new Date()
+        },
+        include: { plan: true }
+    });
+};
+
 export {
     upgradeSubscription,
     addAddon,
@@ -800,7 +825,8 @@ export {
     getAllPlans,
     generateMonthlyInvoice,
     getSubscriptionAccessStatus,
-    getActiveSubscription
+    getActiveSubscription,
+    cancelSubscription
 };
 
 // ✅ Check Subscription Access Status

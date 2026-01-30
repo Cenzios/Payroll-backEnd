@@ -37,5 +37,6 @@ router.get('/active', subscriptionController.getActive);
 router.post('/change-plan', subscriptionController.changePlan);
 router.put('/upgrade', subscriptionController.upgrade);
 router.post('/addon', subscriptionController.addAddon);
+router.post('/cancel', subscriptionController.cancelSubscription);
 
 export default router;
