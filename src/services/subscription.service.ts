@@ -83,7 +83,11 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
             status: { in: ['ACTIVE', 'PENDING_ACTIVATION'] },
         },
         include: {
-            plan: true,
+            plan: {
+                include: {
+                    features: true
+                }
+            },
             addons: true,
         },
         orderBy: {
@@ -155,7 +159,10 @@ const getCurrentSubscriptionDetails = async (userId: string) => {
         nextBillingDate: nextBillingDate, // Now dynamic monthly
         subscriptionId: subscription.id,
         description: subscription.plan.description,
-        features: subscription.plan.features,
+        features: subscription.plan.features.reduce((acc: any, f: any) => {
+            acc[f.featureName] = f.isEnabled;
+            return acc;
+        }, {}),
         status: subscription.status,
     };
 };
@@ -308,7 +315,8 @@ const selectPlan = async (userId: string, planId: string) => {
 
     // Validate plan exists
     const plan = await prisma.plan.findUnique({
-        where: { id: planId }
+        where: { id: planId },
+        include: { features: true }
     });
 
     if (!plan) {
@@ -331,7 +339,13 @@ const selectPlan = async (userId: string, planId: string) => {
                 planId,
                 selectedAt: new Date()
             },
-            include: { plan: true }
+            include: {
+                plan: {
+                    include: {
+                        features: true
+                    }
+                }
+            }
         });
 
         console.log(`✅ Updated existing pending subscription ${updated.id} to new plan ${planId}`);
@@ -386,7 +400,10 @@ const selectPlan = async (userId: string, planId: string) => {
                 maxEmployees: plan.maxEmployees,
                 maxCompanies: plan.maxCompanies,
                 description: plan.description,
-                features: plan.features
+                features: plan.features.reduce((acc: any, f: any) => {
+                    acc[f.featureName] = f.isEnabled;
+                    return acc;
+                }, {})
             }
         };
     }
@@ -434,7 +451,10 @@ const selectPlan = async (userId: string, planId: string) => {
             maxEmployees: plan.maxEmployees,
             maxCompanies: plan.maxCompanies,
             description: plan.description,
-            features: plan.features
+            features: plan.features.reduce((acc: any, f: any) => {
+                acc[f.featureName] = f.isEnabled;
+                return acc;
+            }, {})
         }
     };
 };
@@ -655,12 +675,16 @@ const activateSubscriptionByIntent = async (intent: any) => {
 // ✅ Get All Plans
 const getAllPlans = async () => {
     const plans = await prisma.plan.findMany({
-        orderBy: { registrationFee: 'asc' }
+        orderBy: { registrationFee: 'asc' },
+        include: { features: true }
     });
 
     return plans.map(plan => ({
         ...plan,
-        features: plan.features
+        features: plan.features.reduce((acc: any, f: any) => {
+            acc[f.featureName] = f.isEnabled;
+            return acc;
+        }, {})
     }));
 };
 

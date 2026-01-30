@@ -6,87 +6,115 @@ async function main() {
     console.log('🌱 Starting database seeding...');
 
     // Seed initial PayrollRates configuration
-    // Effective from 01.04.2025 (Sri Lanka PAYE effective date)
     console.log('Creating initial payroll rates configuration...');
 
-    const existingConfig = await prisma.payrollRates.findFirst({
-        where: { isActive: true }
-    });
+    const payrollRatesDate = [
+        {
+            id: "PR_2025_04",
+            effectiveFrom: new Date("2025-04-01 00:00:00"),
+            taxFreeMonthlyLimit: 150000.00,
+            slab1Limit: 83333.00,
+            slab1Rate: 6.00,
+            slab2Limit: 41666.00,
+            slab2Rate: 18.00,
+            slab3Limit: 41666.00,
+            slab3Rate: 24.00,
+            slab4Limit: 41666.00,
+            slab4Rate: 30.00,
+            slab5Rate: 36.00,
+            employeeEPFRate: 8.00,
+            employerEPFRate: 12.00,
+            etfRate: 3.00,
+            isActive: true,
+            createdAt: new Date("2026-01-23 11:54:06.863"),
+            updatedAt: new Date("2026-01-23 11:54:06.863")
+        }
+    ];
 
-    if (existingConfig) {
-        console.log('✅ Active payroll configuration already exists. Skipping...');
-    } else {
-        await prisma.payrollRates.create({
-            data: {
-                effectiveFrom: new Date('2025-04-01'),
-                // Tax Free Monthly Limit
-                taxFreeMonthlyLimit: 150000, // Rs. 150,000
-                // Tax Slabs (Monthly)
-                slab1Limit: 83333, // First Rs. 83,333 @ 6%
-                slab1Rate: 6,
-                slab2Limit: 41667, // Next Rs. 41,667 @ 18%
-                slab2Rate: 18,
-                slab3Limit: 41667, // Next Rs. 41,667 @ 24%
-                slab3Rate: 24,
-                slab4Limit: 41667, // Next Rs. 41,667 @ 30%
-                slab4Rate: 30,
-                slab5Rate: 36, // Remaining @ 36%
-                // EPF/ETF Rates
-                employeeEPFRate: 8,
-                employerEPFRate: 12,
-                etfRate: 3,
-                isActive: true
-            }
+    for (const rate of payrollRatesDate) {
+        await prisma.payrollRates.upsert({
+            where: { id: rate.id },
+            update: rate,
+            create: rate
         });
-        console.log('✅ Initial payroll rates configuration created successfully!');
     }
+    console.log('✅ Payroll rates seeded successfully!');
 
     // Seed Plans
     console.log('Seeding plans...');
-    const plans = [
+    const plansData = [
         {
             id: "0f022c11-2a3c-49f5-9d11-30082882a8e9",
             name: "Basic",
-            price: 2500,
-            employeePrice: 100,
-            registrationFee: 2500,
-            maxEmployees: 30,
+            price: 0.0,
+            maxEmployees: 29,
             maxCompanies: 2,
+            features: "{\"canExportData\": false, \"canViewReports\": false}",
+            createdAt: "2026-01-20 08:22:32.885",
             description: "",
-            features: { canExportData: false, canViewReports: false }
+            employeePrice: 100.0,
+            registrationFee: 2500.0
         },
         {
             id: "3a9f7d42-5b6a-4d6b-b3d2-9b4d6d5a1c21",
             name: "Professional",
-            price: 5000,
-            employeePrice: 175,
-            registrationFee: 5000,
+            price: 75.0,
             maxEmployees: 99,
             maxCompanies: 3,
+            features: "{\"canExportData\": true, \"canViewReports\": true, \"prioritySupport\": false}",
+            createdAt: "2026-01-20 08:22:34.855",
             description: "",
-            features: { canExportData: true, canViewReports: true, prioritySupport: false }
+            employeePrice: 175.0,
+            registrationFee: 5000.0
         },
         {
             id: "9e1c4b2a-8d7f-4b9a-a5c2-2c3f4d6e7b88",
             name: "Enterprise",
-            price: 7500,
-            employeePrice: 200,
-            registrationFee: 7500,
+            price: 50.0,
             maxEmployees: 100,
             maxCompanies: 10,
+            features: "{\"canExportData\": true, \"canViewReports\": true, \"customBranding\": true, \"prioritySupport\": true}",
+            createdAt: "2026-01-20 08:22:36.051",
             description: "",
-            features: { canExportData: true, canViewReports: true, customBranding: true, prioritySupport: true }
+            employeePrice: 200.0,
+            registrationFee: 7500.0
         }
     ];
 
-    for (const plan of plans) {
-        await prisma.plan.upsert({
-            where: { id: plan.id },
-            update: plan,
-            create: plan
+    for (const planData of plansData) {
+        const { features, ...planFields } = planData;
+
+        const plan = await prisma.plan.upsert({
+            where: { id: planData.id },
+            update: {
+                ...planFields,
+                createdAt: new Date(planData.createdAt)
+            },
+            create: {
+                ...planFields,
+                createdAt: new Date(planData.createdAt)
+            }
         });
+
+        // Seed Plan Features
+        const featuresJson = JSON.parse(features);
+
+        // Clear existing features for this plan to avoid duplicates during re-seed
+        await prisma.planFeature.deleteMany({
+            where: { planId: plan.id }
+        });
+
+        for (const [name, enabled] of Object.entries(featuresJson)) {
+            await prisma.planFeature.create({
+                data: {
+                    planId: plan.id,
+                    featureName: name,
+                    isEnabled: !!enabled
+                }
+            });
+        }
     }
-    console.log('✅ Plans seeded successfully!');
+    console.log('✅ Plans and features seeded successfully!');
 
     console.log('🌱 Seeding completed successfully!');
 }

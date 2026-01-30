@@ -30,7 +30,7 @@ passport.use(
                         data: {
                             email,
                             fullName,
-                            role: 'ADMIN',
+                            role: 'USER',
                             isEmailVerified: true,
                             isPasswordSet: false,
                         },
