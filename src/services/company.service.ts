@@ -2,9 +2,10 @@ import prisma from '../config/db';
 
 interface CompanyData {
     name: string;
-    registrationNumber?: string;
+    email: string;
     address: string;
     contactNumber: string;
+    departments: string[];
 }
 
 const createCompany = async (userId: string, data: CompanyData) => {
@@ -47,20 +48,35 @@ const createCompany = async (userId: string, data: CompanyData) => {
         );
     }
 
-    // 6. Create Company
+    // 6. Idempotency Check (Prevent duplicates on retry)
+    const existingCompany = await prisma.company.findFirst({
+        where: {
+            ownerId: userId,
+            name: data.name
+        }
+    });
+
+    if (existingCompany) {
+        console.log(`ℹ️ Company "${data.name}" already exists for user ${userId}. Returning existing record.`);
+        return existingCompany;
+    }
+
+    // 7. Create Company
     const {
         name,
-        registrationNumber,
+        email,
         address,
         contactNumber,
+        departments,
     } = data;
 
     return await prisma.company.create({
         data: {
             name,
-            registrationNumber,
+            email,
             address,
             contactNumber,
+            departments,
             ownerId: userId,
         },
     });
