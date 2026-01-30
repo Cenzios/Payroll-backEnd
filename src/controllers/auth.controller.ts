@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service';
 import sendResponse from '../utils/responseHandler';
 import { generateToken } from '../utils/tokenUtils'; // ✅ USE THIS
+import { getClientIp } from '../utils/requestUtils';
 
 const startSignup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -49,6 +50,15 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
             fullName: result.user.fullName, // ✅ ADD
             email: result.user.email         // ✅ ADD
         });
+
+        // ✅ LOG SUCCESSFUL LOGIN WITH IP AND USER-AGENT
+        const ip = getClientIp(req);
+        const userAgent = req.headers['user-agent'] || 'unknown';
+
+        console.log('🔐 LOGIN SUCCESS');
+        console.log(`👤 User: ${email}`);
+        console.log(`🌍 IP Address: ${ip}`);
+        console.log(`🖥️ User-Agent: ${userAgent}`);
 
         sendResponse(res, 200, true, 'Login successful', {
             user: result.user,

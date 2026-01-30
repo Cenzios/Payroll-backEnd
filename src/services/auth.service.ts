@@ -139,7 +139,7 @@ const setPassword = async (signupToken: string, password: string) => {
             fullName,
             email,
             password: hashedPassword,
-            role: 'ADMIN',
+            role: 'USER',
             isEmailVerified: true, // Already verified via JWT
             isPasswordSet: true,
         },

@@ -54,16 +54,44 @@ const createPayrollRates = async (data: CreatePayrollRatesData) => {
 };
 
 /**
+ * Seed default payroll rates if none exist
+ */
+const seedDefaultPayrollRates = async () => {
+    console.log('🌱 Seeding default payroll rates (SL PAYE 2025)...');
+    return await prisma.payrollRates.create({
+        data: {
+            id: 'PR_2025_04',
+            effectiveFrom: new Date('2025-04-01T00:00:00Z'),
+            taxFreeMonthlyLimit: new Decimal(150000.00),
+            slab1Limit: new Decimal(83333.00),
+            slab1Rate: new Decimal(6.00),
+            slab2Limit: new Decimal(41666.00),
+            slab2Rate: new Decimal(18.00),
+            slab3Limit: new Decimal(41666.00),
+            slab3Rate: new Decimal(24.00),
+            slab4Limit: new Decimal(41666.00),
+            slab4Rate: new Decimal(30.00),
+            slab5Rate: new Decimal(36.00),
+            employeeEPFRate: new Decimal(8.00),
+            employerEPFRate: new Decimal(12.00),
+            etfRate: new Decimal(3.00),
+            isActive: true
+        }
+    });
+};
+
+/**
  * Get the currently active payroll rates configuration
  */
 const getActivePayrollRates = async () => {
-    const activeRates = await prisma.payrollRates.findFirst({
+    let activeRates = await prisma.payrollRates.findFirst({
         where: { isActive: true },
         orderBy: { effectiveFrom: 'desc' }
     });
 
     if (!activeRates) {
-        throw new Error('No active payroll rates configuration found. Please create one first.');
+        // Fall back to seeding if no rates exist
+        activeRates = await seedDefaultPayrollRates();
     }
 
     return activeRates;
@@ -83,7 +111,7 @@ const getPayrollRatesForDate = async (date: Date) => {
     });
 
     if (!rates) {
-        // Fall back to active configuration
+        // Fall back to active/seed configuration
         return getActivePayrollRates();
     }
 

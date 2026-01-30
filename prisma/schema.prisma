@@ -14,33 +14,49 @@ model Plan {
   id              String   @id @default(uuid())
   name            String // Free, Professional, Enterprise
   price           Float // This can be renamed or used as total price for legacy
-  employeePrice   Float    @default(0)
-  registrationFee Float    @default(0)
-  maxEmployees    Int
-  maxCompanies    Int
+  employeePrice   Float    @default(0) @map("employee_price")
+  registrationFee Float    @default(0) @map("registration_fee")
+  maxEmployees    Int      @map("max_employees")
+  maxCompanies    Int      @map("max_companies")
   description     String   @default("")
-  features        Json
-  createdAt       DateTime @default(now())
+  createdAt       DateTime @default(now()) @map("created_at")
 
+  features      PlanFeature[]
   subscriptions Subscription[]
   invoices      Invoice[]
+
+  @@map("plan")
+}
+
+model PlanFeature {
+  id          String   @id @default(uuid())
+  planId      String   @map("plan_id")
+  featureName String   @map("feature_name")
+  isEnabled   Boolean  @default(false) @map("is_enabled")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@map("plan_feature")
 }
 
 model Subscription {
   id          String             @id @default(uuid())
-  userId      String
-  planId      String
+  userId      String             @map("user_id")
+  planId      String             @map("plan_id")
   status      SubscriptionStatus @default(PENDING_ACTIVATION)
-  selectedAt  DateTime?
-  activatedAt DateTime?
-  startDate   DateTime
-  endDate     DateTime
-  createdAt   DateTime           @default(now())
+  selectedAt  DateTime?          @map("selected_at")
+  activatedAt DateTime?          @map("activated_at")
+  startDate   DateTime           @map("start_date")
+  endDate     DateTime           @map("end_date")
+  createdAt   DateTime           @default(now()) @map("created_at")
 
   user     User                @relation(fields: [userId], references: [id])
   plan     Plan                @relation(fields: [planId], references: [id])
   addons   SubscriptionAddon[]
   invoices Invoice[]
+
+  @@map("subscription")
 }
 
 enum SubscriptionStatus {
@@ -54,12 +70,14 @@ enum SubscriptionStatus {
 
 model SubscriptionAddon {
   id             String   @id @default(uuid())
-  subscriptionId String
+  subscriptionId String   @map("subscription_id")
   type           String // "EMPLOYEE_EXTRA"
   value          Int // e.g. +5, +10
-  createdAt      DateTime @default(now())
+  createdAt      DateTime @default(now()) @map("created_at")
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("subscription_addon")
 }
 
 model Company {
@@ -67,32 +85,34 @@ model Company {
   name          String
   email         String
   address       String
-  contactNumber String
+  contactNumber String   @map("contact_number")
   departments   Json // Store departments as JSON array
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
-  ownerId   String
+  ownerId   String     @map("owner_id")
   owner     User       @relation(fields: [ownerId], references: [id])
   employees Employee[]
   salaries  Salary[]
+
+  @@map("company")
 }
 
 model User {
   id       String  @id @default(uuid())
-  fullName String  @default("")
+  fullName String  @default("") @map("full_name")
   email    String  @unique
   password String?
-  role     Role    @default(ADMIN)
+  role     Role    @default(USER)
 
-  isEmailVerified   Boolean   @default(false)
-  emailVerifyToken  String?
-  emailVerifyExpiry DateTime?
-  isPasswordSet     Boolean   @default(false)
+  isEmailVerified   Boolean   @default(false) @map("is_email_verified")
+  emailVerifyToken  String?   @map("email_verify_token")
+  emailVerifyExpiry DateTime? @map("email_verify_expiry")
+  isPasswordSet     Boolean   @default(false) @map("is_password_set")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   subscriptions  Subscription[]
@@ -100,45 +120,51 @@ model User {
   notifications  Notification[]
   paymentIntents PaymentIntent[]
   invoices       Invoice[]
+  loginSessions  UserLoginSession[]
+  auditLogs      AuditLog[]
+
+  @@map("user")
 }
 
 enum Role {
+  USER
   ADMIN
   SUPER_ADMIN
 }
 
 model Employee {
   id            String  @id @default(uuid())
-  fullName      String
+  fullName      String  @map("full_name")
   address       String
   nic           String  @unique
-  employeeId    String // Internal ID given by company
-  contactNumber String
+  employeeId    String  @map("employee_id") // Internal ID given by company
+  contactNumber String  @map("contact_number")
   email         String?
 
   // Employment Details
-  joinedDate  DateTime
+  joinedDate  DateTime @map("joined_date")
   designation String
   department  String
 
   // Salary Details
-  dailyRate Float @default(0)
+  dailyRate Float @default(0) @map("daily_rate")
 
   // EPF Settings
-  epfEnabled Boolean @default(true)
+  epfEnabled Boolean @default(true) @map("epf_enabled")
 
   status String @default("ACTIVE") // ACTIVE, INACTIVE
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // Soft Delete field
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") // Soft Delete field
 
   // Relations
-  companyId String
+  companyId String   @map("company_id")
   company   Company  @relation(fields: [companyId], references: [id])
   salaries  Salary[]
 
   @@unique([companyId, employeeId]) // Employee ID must be unique within a company
+  @@map("employee")
 }
 
 model Salary {
@@ -147,27 +173,27 @@ model Salary {
   year  Int
 
   // Inputs
-  workingDays Int
+  workingDays Int @map("working_days")
 
   // Calculated Values
-  basicPay Float
+  basicPay Float @map("basic_pay")
 
-  employeeEPF Float
-  employerEPF Float
-  etfAmount   Float
+  employeeEPF Float @map("employee_epf")
+  employerEPF Float @map("employer_epf")
+  etfAmount   Float @map("etf_amount")
 
   // Tax (PAYE)
-  employeeTaxAmount Float @default(0)
+  employeeTaxAmount Float @default(0) @map("employee_tax_amount")
 
   // Snapshot of rates used (for legal compliance and historical accuracy)
-  employeeEPFRate Decimal? @db.Decimal(5, 2)
-  employerEPFRate Decimal? @db.Decimal(5, 2)
-  etfRate         Decimal? @db.Decimal(5, 2)
-  taxConfigId     String?
+  employeeEPFRate Decimal? @map("employee_epf_rate") @db.Decimal(5, 2)
+  employerEPFRate Decimal? @map("employer_epf_rate") @db.Decimal(5, 2)
+  etfRate         Decimal? @map("etf_rate") @db.Decimal(5, 2)
+  taxConfigId     String?  @map("tax_config_id")
 
-  netSalary Float
+  netSalary Float @map("net_salary")
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
   employeeId   String
@@ -175,58 +201,63 @@ model Salary {
   companyId    String
   company      Company       @relation(fields: [companyId], references: [id])
   payrollRates PayrollRates? @relation(fields: [taxConfigId], references: [id])
+
+  @@map("salary")
 }
 
 model PayrollRates {
   id String @id @default(uuid())
 
   // Effective Date
-  effectiveFrom DateTime
+  effectiveFrom DateTime @map("effective_from")
 
   // Tax Configuration (Monthly Basis)
-  taxFreeMonthlyLimit Decimal @db.Decimal(10, 2) // e.g. 150000
-  slab1Limit          Decimal @db.Decimal(10, 2) // e.g. 83333
-  slab1Rate           Decimal @db.Decimal(5, 2) // e.g. 6
-  slab2Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
-  slab2Rate           Decimal @db.Decimal(5, 2) // e.g. 18
-  slab3Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
-  slab3Rate           Decimal @db.Decimal(5, 2) // e.g. 24
-  slab4Limit          Decimal @db.Decimal(10, 2) // e.g. 41667
-  slab4Rate           Decimal @db.Decimal(5, 2) // e.g. 30
-  slab5Rate           Decimal @db.Decimal(5, 2) // e.g. 36 (for remaining balance)
+  taxFreeMonthlyLimit Decimal @map("tax_free_monthly_limit") @db.Decimal(10, 2) // e.g. 150000
+  slab1Limit          Decimal @map("slab1_limit") @db.Decimal(10, 2) // e.g. 83333
+  slab1Rate           Decimal @map("slab1_rate") @db.Decimal(5, 2) // e.g. 6
+  slab2Limit          Decimal @map("slab2_limit") @db.Decimal(10, 2) // e.g. 41667
+  slab2Rate           Decimal @map("slab2_rate") @db.Decimal(5, 2) // e.g. 18
+  slab3Limit          Decimal @map("slab3_limit") @db.Decimal(10, 2) // e.g. 41667
+  slab3Rate           Decimal @map("slab3_rate") @db.Decimal(5, 2) // e.g. 24
+  slab4Limit          Decimal @map("slab4_limit") @db.Decimal(10, 2) // e.g. 41667
+  slab4Rate           Decimal @map("slab4_rate") @db.Decimal(5, 2) // e.g. 30
+  slab5Rate           Decimal @map("slab5_rate") @db.Decimal(5, 2) // e.g. 36 (for remaining balance)
 
   // EPF/ETF Configuration
-  employeeEPFRate Decimal @db.Decimal(5, 2) // e.g. 8
-  employerEPFRate Decimal @db.Decimal(5, 2) // e.g. 12
-  etfRate         Decimal @db.Decimal(5, 2) // e.g. 3
+  employeeEPFRate Decimal @map("employee_epf_rate") @db.Decimal(5, 2) // e.g. 8
+  employerEPFRate Decimal @map("employer_epf_rate") @db.Decimal(5, 2) // e.g. 12
+  etfRate         Decimal @map("etf_rate") @db.Decimal(5, 2) // e.g. 3
 
   // Status
-  isActive Boolean @default(false)
+  isActive Boolean @default(false) @map("is_active")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   salaries Salary[]
+
+  @@map("payroll_rates")
 }
 
 model Notification {
   id String @id @default(uuid())
 
-  userId  String
+  userId  String           @map("user_id")
   title   String
   message String           @db.Text
   type    NotificationType @default(INFO)
 
-  isRead    Boolean @default(false)
-  isDeleted Boolean @default(false)
+  isRead    Boolean @default(false) @map("is_read")
+  isDeleted Boolean @default(false) @map("is_deleted")
 
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, isDeleted, isRead])
+  @@map("notification")
 }
 
 enum NotificationType {
@@ -237,21 +268,23 @@ enum NotificationType {
 
 model PaymentIntent {
   id             String              @id @default(uuid())
-  userId         String
-  planId         String
+  userId         String              @map("user_id")
+  planId         String              @map("plan_id")
   amount         Float
   currency       String              @default("LKR")
   gateway        String              @default("STRIPE")
   status         PaymentIntentStatus @default(CREATED)
-  paymentOrderId String?             @unique
-  expiresAt      DateTime?
+  paymentOrderId String?             @unique @map("payment_order_id")
+  expiresAt      DateTime?           @map("expires_at")
   metadata       Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user     User      @relation(fields: [userId], references: [id])
   invoices Invoice[]
+
+  @@map("payment_intent")
 }
 
 enum PaymentIntentStatus {
@@ -300,4 +333,56 @@ enum InvoiceStatus {
   PENDING
   PAID
   FAILED
+}
+
+model UserLoginSession {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  ipAddress  String  @map("ip_address")
+  userAgent  String  @map("user_agent")
+  deviceType String? @map("device_type") // desktop / mobile / tablet
+  browser    String?
+  os         String?
+
+  country String?
+  city    String?
+
+  loginAt  DateTime  @default(now()) @map("login_at")
+  logoutAt DateTime? @map("logout_at")
+
+  isSuspicious Boolean @default(false) @map("is_suspicious")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([ipAddress])
+  @@map("user_login_session")
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id])
+
+  action     String // CREATE_EMPLOYEE, UPDATE_SALARY, DELETE_COMPANY
+  httpMethod String @map("http_method") // POST, PUT, PATCH, DELETE
+  endpoint   String // /api/employees/123
+
+  resourceType String? @map("resource_type") // employee, salary, company
+  resourceId   String? @map("resource_id")
+
+  ipAddress String  @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  statusCode Int? @map("status_code")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_log")
 }

@@ -20,6 +20,9 @@ import planRoutes from './routes/plan.routes';
 
 const app = express();
 
+// Trust proxy for IP detection
+app.set('trust proxy', true);
+
 // Middleware
 app.use(helmet());
 app.use(cors());
