@@ -62,5 +62,6 @@ router.get(
 // Protected routes
 router.put('/profile', protect, updateProfileValidation, validate, authController.updateProfile);
 router.post('/change-password', protect, changePasswordValidation, validate, authController.changePassword);
+router.post('/logout', protect, authController.logout);
 
 export default router;

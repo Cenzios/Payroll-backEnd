@@ -108,4 +108,18 @@ const changePassword = async (req: Request, res: Response, next: NextFunction): 
     }
 };
 
-export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };
+const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 200, true, 'Logged out successfully');
+            return;
+        }
+        const result = await authService.logout(userId);
+        sendResponse(res, 200, true, result.message);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword, logout };
