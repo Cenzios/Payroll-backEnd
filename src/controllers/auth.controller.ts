@@ -38,6 +38,9 @@ const setPassword = async (req: Request, res: Response, next: NextFunction): Pro
     }
 };
 
+import { detectDevice, getLocationFromIP } from '../utils/clientInfo';
+import prisma from '../config/db';
+
 const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { email, password } = req.body;
@@ -47,18 +50,45 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
         const token = generateToken({
             userId: result.user.id,
             role: result.user.role,
-            fullName: result.user.fullName, // ✅ ADD
-            email: result.user.email         // ✅ ADD
+            fullName: result.user.fullName,
+            email: result.user.email
         });
 
-        // ✅ LOG SUCCESSFUL LOGIN WITH IP AND USER-AGENT
+        // ✅ LOG SUCCESSFUL LOGIN WITH IP AND USER-AGENT & SAVE SESSION
         const ip = getClientIp(req);
         const userAgent = req.headers['user-agent'] || 'unknown';
 
-        console.log('🔐 LOGIN SUCCESS');
-        console.log(`👤 User: ${email}`);
-        console.log(`🌍 IP Address: ${ip}`);
-        console.log(`🖥️ User-Agent: ${userAgent}`);
+        // Run async without awaiting to not block login response
+        (async () => {
+            try {
+                const deviceInfo = detectDevice(userAgent);
+                const locationInfo = await getLocationFromIP(ip);
+
+                console.log('🌍 New Login Session:', {
+                    user: email,
+                    ip: locationInfo.ip,
+                    city: locationInfo.city,
+                    country: locationInfo.country,
+                    device: deviceInfo.device
+                });
+
+                await prisma.userLoginSession.create({
+                    data: {
+                        userId: result.user.id,
+                        ipAddress: locationInfo.ip || ip,
+                        userAgent: userAgent,
+                        deviceType: deviceInfo.device,
+                        browser: deviceInfo.browser,
+                        os: deviceInfo.os,
+                        country: locationInfo.country,
+                        city: locationInfo.city,
+                        loginAt: new Date()
+                    }
+                });
+            } catch (err: any) {
+                console.error('❌ Failed to save login session:', err.message);
+            }
+        })();
 
         sendResponse(res, 200, true, 'Login successful', {
             user: result.user,
