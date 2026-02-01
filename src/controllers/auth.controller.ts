@@ -38,9 +38,6 @@ const setPassword = async (req: Request, res: Response, next: NextFunction): Pro
     }
 };
 
-import { detectDevice, getLocationFromIP } from '../utils/clientInfo';
-import prisma from '../config/db';
-
 const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { email, password } = req.body;
@@ -60,34 +57,7 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
 
         // Run async without awaiting to not block login response
         (async () => {
-            try {
-                const deviceInfo = detectDevice(userAgent);
-                const locationInfo = await getLocationFromIP(ip);
-
-                console.log('🌍 New Login Session:', {
-                    user: email,
-                    ip: locationInfo.ip,
-                    city: locationInfo.city,
-                    country: locationInfo.country,
-                    device: deviceInfo.device
-                });
-
-                await prisma.userLoginSession.create({
-                    data: {
-                        userId: result.user.id,
-                        ipAddress: locationInfo.ip || ip,
-                        userAgent: userAgent,
-                        deviceType: deviceInfo.device,
-                        browser: deviceInfo.browser,
-                        os: deviceInfo.os,
-                        country: locationInfo.country,
-                        city: locationInfo.city,
-                        loginAt: new Date()
-                    }
-                });
-            } catch (err: any) {
-                console.error('❌ Failed to save login session:', err.message);
-            }
+            await authService.logUserSession(result.user.id, email, ip, userAgent);
         })();
 
         sendResponse(res, 200, true, 'Login successful', {

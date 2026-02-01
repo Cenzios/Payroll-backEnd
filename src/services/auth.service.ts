@@ -233,4 +233,38 @@ const changePassword = async (userId: string, data: any) => {
     return { success: true, message: 'Password updated successfully' };
 };
 
-export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };
+import { detectDevice, getLocationFromIP } from '../utils/clientInfo';
+
+// Shared function to log user session (used in controller and passport callback)
+const logUserSession = async (userId: string, email: string, ip: string, userAgent: string) => {
+    try {
+        const deviceInfo = detectDevice(userAgent);
+        const locationInfo = await getLocationFromIP(ip);
+
+        console.log('🌍 New Login Session:', {
+            user: email,
+            ip: locationInfo.ip,
+            city: locationInfo.city,
+            country: locationInfo.country,
+            device: deviceInfo.device
+        });
+
+        await prisma.userLoginSession.create({
+            data: {
+                userId,
+                ipAddress: locationInfo.ip || ip,
+                userAgent,
+                deviceType: deviceInfo.device,
+                browser: deviceInfo.browser,
+                os: deviceInfo.os,
+                country: locationInfo.country,
+                city: locationInfo.city,
+                loginAt: new Date()
+            }
+        });
+    } catch (err: any) {
+        console.error('❌ Failed to save login session:', err.message);
+    }
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword, logUserSession };
