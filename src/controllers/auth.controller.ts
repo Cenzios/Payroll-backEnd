@@ -47,18 +47,18 @@ const login = async (req: Request, res: Response, next: NextFunction): Promise<v
         const token = generateToken({
             userId: result.user.id,
             role: result.user.role,
-            fullName: result.user.fullName, // ✅ ADD
-            email: result.user.email         // ✅ ADD
+            fullName: result.user.fullName,
+            email: result.user.email
         });
 
-        // ✅ LOG SUCCESSFUL LOGIN WITH IP AND USER-AGENT
+        // ✅ LOG SUCCESSFUL LOGIN WITH IP AND USER-AGENT & SAVE SESSION
         const ip = getClientIp(req);
         const userAgent = req.headers['user-agent'] || 'unknown';
 
-        console.log('🔐 LOGIN SUCCESS');
-        console.log(`👤 User: ${email}`);
-        console.log(`🌍 IP Address: ${ip}`);
-        console.log(`🖥️ User-Agent: ${userAgent}`);
+        // Run async without awaiting to not block login response
+        (async () => {
+            await authService.logUserSession(result.user.id, email, ip, userAgent);
+        })();
 
         sendResponse(res, 200, true, 'Login successful', {
             user: result.user,
@@ -108,4 +108,18 @@ const changePassword = async (req: Request, res: Response, next: NextFunction): 
     }
 };
 
-export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };
+const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            sendResponse(res, 200, true, 'Logged out successfully');
+            return;
+        }
+        const result = await authService.logout(userId);
+        sendResponse(res, 200, true, result.message);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword, logout };

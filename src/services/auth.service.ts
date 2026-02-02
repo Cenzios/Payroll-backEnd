@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { generateVerificationToken, generateTokenExpiry } from '../utils/tokenGenerator';
-import { sendVerificationEmail } from './emailService';
+import { sendVerificationEmail, sendFailedLoginWarning, sendSuspiciousLoginWarning } from './emailService';
 import jwt from 'jsonwebtoken';
 
 interface StartSignupData {
@@ -162,6 +162,12 @@ const login = async (email: string, password: string) => {
         throw new Error('Invalid credentials');
     }
 
+    // CHECK LOCKOUT
+    if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+        const remainingTime = Math.ceil((user.lockoutUntil.getTime() - new Date().getTime()) / (1000 * 60)); // minutes
+        throw new Error(`Account temporarily locked due to multiple failed login attempts. Please try again in ${remainingTime} minutes.`);
+    }
+
     if (!user.isEmailVerified) {
         throw new Error('Please verify your email before logging in');
     }
@@ -171,8 +177,41 @@ const login = async (email: string, password: string) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
+        // HANDLE FAILED LOGIN
+        const attempts = user.failedLoginAttempts + 1;
+        let updateData: any = {
+            failedLoginAttempts: attempts,
+            lastFailedLogin: new Date()
+        };
+
+        if (attempts >= 3) {
+            // Lock account for 3 hours
+            const lockoutTime = new Date(Date.now() + 3 * 60 * 60 * 1000);
+            updateData.lockoutUntil = lockoutTime;
+
+            // Send warning email
+            sendFailedLoginWarning(email, attempts, new Date()).catch(err => console.error('Failed to send lockout warning:', err));
+        }
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: updateData
+        });
+
         throw new Error('Invalid credentials');
+    }
+
+    // LOGIN SUCCESS - RESET COUNTERS
+    if (user.failedLoginAttempts > 0 || user.lockoutUntil) {
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                failedLoginAttempts: 0,
+                lockoutUntil: null
+            }
+        });
     }
 
     // Check for active subscription
@@ -233,4 +272,89 @@ const changePassword = async (userId: string, data: any) => {
     return { success: true, message: 'Password updated successfully' };
 };
 
-export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword };
+import { detectDevice, getLocationFromIP } from '../utils/clientInfo';
+
+// Shared function to log user session (used in controller and passport callback)
+const logUserSession = async (userId: string, email: string, ip: string, userAgent: string) => {
+    try {
+        const deviceInfo = detectDevice(userAgent);
+        const locationInfo = await getLocationFromIP(ip);
+
+        // CHECK FOR SUSPICIOUS ACTIVITY
+        // Get the last session for this user
+        const lastSession = await prisma.userLoginSession.findFirst({
+            where: { userId },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (lastSession) {
+            const isDifferentCountry = lastSession.country && locationInfo.country && lastSession.country !== 'Unknown' && locationInfo.country !== 'Unknown' && lastSession.country !== locationInfo.country;
+            const isDifferentCity = lastSession.city && locationInfo.city && lastSession.city !== 'Unknown' && locationInfo.city !== 'Unknown' && lastSession.city !== locationInfo.city;
+            const isDifferentDevice = lastSession.deviceType && deviceInfo.device && lastSession.deviceType !== deviceInfo.device;
+
+            if (isDifferentCountry || isDifferentCity || isDifferentDevice) {
+                console.warn(`🚨 Suspicious login attempt for ${email} from ${locationInfo.city}, ${locationInfo.country} on ${deviceInfo.device}`);
+
+                // Send warning email (async, don't await)
+                sendSuspiciousLoginWarning(
+                    email,
+                    deviceInfo.device,
+                    `${locationInfo.city}, ${locationInfo.country}`,
+                    new Date()
+                ).catch(err => console.error('Failed to send suspicious login warning:', err));
+
+                // Mark session as suspicious
+                // (We will create the session below, but could add a flag if we updated the schema)
+            }
+        }
+
+        console.log('🌍 New Login Session:', {
+            user: email,
+            ip: locationInfo.ip,
+            city: locationInfo.city,
+            country: locationInfo.country,
+            device: deviceInfo.device
+        });
+
+        await prisma.userLoginSession.create({
+            data: {
+                userId,
+                ipAddress: locationInfo.ip || ip,
+                userAgent,
+                deviceType: deviceInfo.device,
+                browser: deviceInfo.browser,
+                os: deviceInfo.os,
+                country: locationInfo.country,
+                city: locationInfo.city,
+                loginAt: new Date(),
+                isSuspicious: lastSession ? ((lastSession.country !== locationInfo.country && locationInfo.country !== 'Unknown') || lastSession.deviceType !== deviceInfo.device) : false
+            }
+        });
+    } catch (err: any) {
+        console.error('❌ Failed to save login session:', err.message);
+    }
+};
+
+const logout = async (userId: string) => {
+    // Find the latest active session for this user and mark as logged out
+    const lastSession = await prisma.userLoginSession.findFirst({
+        where: {
+            userId,
+            logoutAt: null
+        },
+        orderBy: { loginAt: 'desc' }
+    });
+
+    if (lastSession) {
+        await prisma.userLoginSession.update({
+            where: { id: lastSession.id },
+            data: { logoutAt: new Date() }
+        });
+        return { success: true, message: 'Logged out successfully' };
+    }
+
+    return { success: true, message: 'No active session found to logout' };
+};
+
+export { startSignup, verifyEmail, setPassword, login, updateProfile, changePassword, logUserSession, logout };
+

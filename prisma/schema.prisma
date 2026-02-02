@@ -111,6 +111,11 @@ model User {
   emailVerifyExpiry DateTime? @map("email_verify_expiry")
   isPasswordSet     Boolean   @default(false) @map("is_password_set")
 
+  // Security
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lastFailedLogin     DateTime? @map("last_failed_login")
+  lockoutUntil        DateTime? @map("lockout_until")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -357,6 +362,8 @@ model UserLoginSession {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  auditLogs AuditLog[]
+
   @@index([userId])
   @@index([ipAddress])
   @@map("user_login_session")
@@ -367,6 +374,9 @@ model AuditLog {
 
   userId String? @map("user_id")
   user   User?   @relation(fields: [userId], references: [id])
+
+  loginSessionId String?           @map("login_session_id")
+  loginSession   UserLoginSession? @relation(fields: [loginSessionId], references: [id])
 
   action     String // CREATE_EMPLOYEE, UPDATE_SALARY, DELETE_COMPANY
   httpMethod String @map("http_method") // POST, PUT, PATCH, DELETE

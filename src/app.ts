@@ -34,6 +34,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use(passport.initialize());
+
+// ✅ Audit Logging Middleware (After Auth/Parsers, Before Routes)
+import { auditLog } from './middlewares/audit.middleware';
+app.use(auditLog);
+
 // Routes
 app.use('/api/v1/auth', authRoutes);
 // Routes
