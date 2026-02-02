@@ -7,7 +7,7 @@ import sendResponse from '../utils/responseHandler';
  */
 const getUserNotifications = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
 
         if (!userId) {
             sendResponse(res, 401, false, 'Unauthorized');
@@ -28,7 +28,7 @@ const getUserNotifications = async (req: Request, res: Response, next: NextFunct
  */
 const getUnreadCount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
 
         if (!userId) {
             sendResponse(res, 401, false, 'Unauthorized');
