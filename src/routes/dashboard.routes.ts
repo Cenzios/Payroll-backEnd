@@ -8,5 +8,6 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/summary', requireActiveSubscription, dashboardController.getSummary);
+router.get('/salary-trend', requireActiveSubscription, dashboardController.getSalaryTrend);
 
 export default router;
