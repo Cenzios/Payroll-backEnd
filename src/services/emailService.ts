@@ -63,8 +63,20 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
     }
 }
 
-export const sendFailedLoginWarning = async (email: string, attemptCount: number, time: Date): Promise<void> => {
+import { createNotification } from './notification.service';
+
+// ... (existing code)
+
+export const sendFailedLoginWarning = async (email: string, userId: string, attemptCount: number, time: Date): Promise<void> => {
     const formattedTime = time.toLocaleString();
+
+    // Create In-App Notification
+    createNotification(
+        userId,
+        'Security Alert: Failed Logins',
+        `We detected ${attemptCount} consecutive failed login attempts on your account.`,
+        'WARNING'
+    ).catch(err => console.error('Failed to create notification:', err));
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
@@ -91,8 +103,16 @@ export const sendFailedLoginWarning = async (email: string, attemptCount: number
     }
 };
 
-export const sendSuspiciousLoginWarning = async (email: string, device: string, location: string, time: Date): Promise<void> => {
+export const sendSuspiciousLoginWarning = async (email: string, userId: string, device: string, location: string, time: Date): Promise<void> => {
     const formattedTime = time.toLocaleString();
+
+    // Create In-App Notification
+    createNotification(
+        userId,
+        'Unusual Login Detected',
+        `New login detected from ${location} on ${device}.`,
+        'WARNING'
+    ).catch(err => console.error('Failed to create notification:', err));
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,

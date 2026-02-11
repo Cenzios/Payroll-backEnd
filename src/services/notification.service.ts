@@ -99,11 +99,27 @@ const getUnreadCount = async (userId: string) => {
     return count;
 };
 
+/**
+ * Soft delete all notifications for a user
+ */
+const markAllAsDeleted = async (userId: string) => {
+    const result = await prisma.notification.updateMany({
+        where: {
+            userId,
+            isDeleted: false
+        },
+        data: { isDeleted: true }
+    });
+
+    return result;
+};
+
 export {
     createNotification,
     getUserNotifications,
     markAsRead,
     softDelete,
     deleteRelatedNotifications,
-    getUnreadCount
+    getUnreadCount,
+    markAllAsDeleted
 };

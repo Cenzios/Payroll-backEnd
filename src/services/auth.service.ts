@@ -192,7 +192,7 @@ const login = async (email: string, password: string) => {
             updateData.lockoutUntil = lockoutTime;
 
             // Send warning email
-            sendFailedLoginWarning(email, attempts, new Date()).catch(err => console.error('Failed to send lockout warning:', err));
+            sendFailedLoginWarning(email, user.id, attempts, new Date()).catch(err => console.error('Failed to send lockout warning:', err));
         }
 
         await prisma.user.update({
@@ -298,6 +298,7 @@ const logUserSession = async (userId: string, email: string, ip: string, userAge
                 // Send warning email (async, don't await)
                 sendSuspiciousLoginWarning(
                     email,
+                    userId,
                     deviceInfo.device,
                     `${locationInfo.city}, ${locationInfo.country}`,
                     new Date()

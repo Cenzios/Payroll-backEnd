@@ -7,7 +7,7 @@ import sendResponse from '../utils/responseHandler';
  */
 const getUserNotifications = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
 
         if (!userId) {
             sendResponse(res, 401, false, 'Unauthorized');
@@ -28,7 +28,7 @@ const getUserNotifications = async (req: Request, res: Response, next: NextFunct
  */
 const getUnreadCount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
 
         if (!userId) {
             sendResponse(res, 401, false, 'Unauthorized');
@@ -70,4 +70,23 @@ const deleteNotification = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-export { getUserNotifications, getUnreadCount, markAsRead, deleteNotification };
+/**
+ * Delete all notifications for the logged-in user
+ */
+const deleteAllNotifications = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = (req as any).user?.userId;
+
+        if (!userId) {
+            sendResponse(res, 401, false, 'Unauthorized');
+            return;
+        }
+
+        const result = await notificationService.markAllAsDeleted(userId);
+        sendResponse(res, 200, true, 'All notifications deleted', result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export { getUserNotifications, getUnreadCount, markAsRead, deleteNotification, deleteAllNotifications };
