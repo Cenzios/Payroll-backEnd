@@ -3,7 +3,6 @@ import prisma from '../config/db';
 interface EmployeeData {
     fullName: string;
     address: string;
-    nic: string;
     employeeId: string;
     contactNumber: string;
     joinedDate: Date;
@@ -61,24 +60,17 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
         throw new Error(`Employee limit reached (${finalLimit}). Upgrade your plan or buy add-ons to add more employees.`);
     }
 
-    // Handle PENDING NIC
-    if (data.nic === 'PENDING') {
-        data.nic = `PENDING_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-    }
-
-    // 5. Check for duplicate NIC or EmployeeID within company
+    // 5. Check for duplicate EmployeeID within company (Only Active Employees)
     const existing = await prisma.employee.findFirst({
         where: {
             companyId,
-            OR: [
-                { nic: data.nic },
-                { employeeId: data.employeeId }
-            ]
+            employeeId: data.employeeId,
+            deletedAt: null // Only check active employees
         }
     });
 
     if (existing) {
-        throw new Error('Employee with this NIC or Employee ID already exists');
+        throw new Error('Employee with this Employee ID already exists');
     }
 
     // Remove deprecated fields
@@ -115,7 +107,6 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
         OR: [
             { fullName: { contains: search } },
             { employeeId: { contains: search } },
-            { nic: { contains: search } },
         ]
     };
 
@@ -167,6 +158,20 @@ const updateEmployee = async (userId: string, companyId: string, id: string, dat
 
     if (!employee) {
         throw new Error('Employee not found');
+    }
+
+    if (data.employeeId) {
+        const existing = await prisma.employee.findFirst({
+            where: {
+                companyId,
+                employeeId: data.employeeId,
+                deletedAt: null,
+                NOT: { id }
+            }
+        });
+        if (existing) {
+            throw new Error('Employee with this Employee ID already exists');
+        }
     }
 
     const {

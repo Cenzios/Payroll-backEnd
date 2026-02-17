@@ -141,7 +141,6 @@ model Employee {
   id            String  @id @default(uuid())
   fullName      String  @map("full_name")
   address       String
-  nic           String  @unique
   employeeId    String  @map("employee_id") // Internal ID given by company
   contactNumber String  @map("contact_number")
   email         String?
@@ -168,7 +167,6 @@ model Employee {
   company   Company  @relation(fields: [companyId], references: [id])
   salaries  Salary[]
 
-  @@unique([companyId, employeeId]) // Employee ID must be unique within a company
   @@map("employee")
 }
 
