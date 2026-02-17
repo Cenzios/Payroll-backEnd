@@ -4,7 +4,6 @@ const createEmployeeValidation = [
     body('fullName').notEmpty().withMessage('Full Name is required'),
     body('address').optional({ values: 'falsy' }).trim(),
     body('accountNumber').optional(),
-    body('nic').default('PENDING'),
     body('employeeId').notEmpty().withMessage('Employee ID is required'),
     body('contactNumber').notEmpty().withMessage('Contact Number is required'),
     body('joinedDate').isISO8601().toDate().withMessage('Valid Joined Date is required'),
