@@ -28,8 +28,10 @@ const getSummary = async (userId: string, companyId?: string) => {
             // For now, throw error for security
             throw new Error('Company not found or access denied');
         }
-        employeeFilter = { companyId };
+        employeeFilter = { companyId, deletedAt: null };
         salaryFilter = { companyId };
+    } else {
+        employeeFilter = { companyId: { in: companyIds }, deletedAt: null };
     }
 
     // Stats

@@ -46,7 +46,7 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
 
     // 3. Count existing employees in this company
     const employeeCount = await prisma.employee.count({
-        where: { companyId },
+        where: { companyId, deletedAt: null },
     });
 
     // Calculate FINAL_LIMIT
