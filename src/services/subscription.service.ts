@@ -1,5 +1,6 @@
 import prisma from '../config/db';
 import { generateCheckoutHash, generateNotifyHash } from '../utils/payhere';
+import { sendWelcomeEmail } from './emailService';
 
 interface AddonData {
     type: string;
@@ -545,6 +546,7 @@ const createPaymentSession = async (userId: string) => {
 
 // ✅ Process PayHere Notify Webhook
 const processPayHereNotify = async (data: any) => {
+    console.log('🔄 [SUBSCRIPTION SERVICE] Processing PayHere Notify for Order:', data.order_id);
     const {
         merchant_id,
         order_id,
@@ -583,15 +585,17 @@ const processPayHereNotify = async (data: any) => {
 
         if (retryHash === md5sig) {
             localHash = retryHash; // Success on second attempt
-            console.log(`✅ Hash verified with formatted amount: ${formattedAmount}`);
+            console.log(`✅ [PAYHERE HASH] Verified with formatted amount: ${formattedAmount}`);
         } else {
             // Debug Logs (Be careful not to expose secrets in prod logs if possible, but essential here)
-            console.error(`❌ PayHere Hash Mismatch for order ${order_id}`);
+            console.error(`❌ [PAYHERE HASH] Mismatch for order ${order_id}`);
             console.error(`   Received: ${md5sig}`);
             console.error(`   Computed (Raw): ${localHash}`);
             console.error(`   Computed (Fmt): ${retryHash}`);
             throw new Error('Invalid payment signature');
         }
+    } else {
+        console.log(`✅ [PAYHERE HASH] Verified successfully on first attempt for ${order_id}`);
     }
 
     // 2. Update Subscription Status
@@ -600,14 +604,68 @@ const processPayHereNotify = async (data: any) => {
 
     console.log(`📡 PayHere Status Update for ${order_id}: ${status} (Code: ${status_code})`);
 
-    return await prisma.subscription.update({
+    const updatedSubscription = await prisma.subscription.update({
         where: { id: order_id },
         data: {
             status,
             activatedAt
         },
-        include: { plan: true }
+        include: {
+            plan: true,
+            user: true
+        }
     });
+
+    // 3. If ACTIVE, mark REGISTRATION invoice as PAID and send Welcome Email
+    if (status === 'ACTIVE') {
+        console.log(`🚀 [ACTIVATION] Subscription ${order_id} is now ACTIVE. Starting post-activation workflow...`);
+        try {
+            // Update Registration Invoice
+            const invoice = await prisma.invoice.findFirst({
+                where: {
+                    subscriptionId: updatedSubscription.id,
+                    billingType: 'REGISTRATION',
+                    status: 'PENDING'
+                }
+            });
+
+            if (invoice) {
+                await prisma.invoice.update({
+                    where: { id: invoice.id },
+                    data: {
+                        status: 'PAID',
+                        paidAt: new Date()
+                    }
+                });
+                console.log(`🧾 [INVOICE] Registration invoice ${invoice.id} marked as PAID`);
+            } else {
+                console.log(`ℹ️ [INVOICE] No pending registration invoice found for subscription ${updatedSubscription.id}`);
+            }
+
+            // Send Welcome Email
+            console.log(`📧 [EMAIL] Triggering welcome email to: ${updatedSubscription.user.email}`);
+            sendWelcomeEmail(
+                updatedSubscription.user.email,
+                updatedSubscription.user.fullName,
+                data.payment_id || order_id,
+                payhere_currency,
+                parseFloat(payhere_amount),
+                new Date(),
+                updatedSubscription.plan.name
+            ).then(() => {
+                console.log(`✅ [EMAIL] Welcome email promise resolved for: ${updatedSubscription.user.email}`);
+            }).catch(err => {
+                console.error('❌ [EMAIL] Failed to send welcome email:', err);
+            });
+
+        } catch (err) {
+            console.error('❌ [ACTIVATION] Error in PayHere post-activation logic:', err);
+        }
+    } else {
+        console.log(`⚠️ [ACTIVATION] Subscription status is ${status}. Skipping welcome email.`);
+    }
+
+    return updatedSubscription;
 };
 
 // ✅ Activate Subscription using Payment Intent
@@ -663,13 +721,62 @@ const activateSubscriptionByIntent = async (intent: any) => {
 
     // Activate it
     console.log(`✅ Activating subscription ${subscription.id}`);
-    return await prisma.subscription.update({
+    const activatedSubscription = await prisma.subscription.update({
         where: { id: subscription.id },
         data: {
             status: 'ACTIVE',
             activatedAt: new Date(),
+        },
+        include: {
+            plan: true,
+            user: true
         }
     });
+
+    // Mark Registration Invoice as PAID and send Welcome Email
+    try {
+        console.log(`🚀 [INTENT ACTIVATION] Starting post-activation for ${activatedSubscription.id}`);
+        const invoice = await prisma.invoice.findFirst({
+            where: {
+                subscriptionId: activatedSubscription.id,
+                billingType: 'REGISTRATION',
+                status: 'PENDING'
+            }
+        });
+
+        if (invoice) {
+            await prisma.invoice.update({
+                where: { id: invoice.id },
+                data: {
+                    status: 'PAID',
+                    paidAt: new Date()
+                }
+            });
+            console.log(`🧾 [INVOICE] Registration invoice ${invoice.id} marked as PAID (Intent)`);
+
+            // Send Welcome Email
+            console.log(`📧 [EMAIL] Triggering welcome email to: ${activatedSubscription.user.email} (Intent)`);
+            sendWelcomeEmail(
+                activatedSubscription.user.email,
+                activatedSubscription.user.fullName,
+                activatedSubscription.id, // Using subscription ID as transaction ID
+                'LKR', // Default currency for intent activation if not in intent
+                invoice.totalAmount,
+                new Date(),
+                activatedSubscription.plan.name
+            ).then(() => {
+                console.log(`✅ [EMAIL] Welcome email promise resolved (Intent)`);
+            }).catch(err => {
+                console.error('❌ [EMAIL] Failed to send welcome email (Intent):', err);
+            });
+        } else {
+            console.log(`ℹ️ [INVOICE] No pending registration invoice found for subscription ${activatedSubscription.id} (Intent)`);
+        }
+    } catch (err) {
+        console.error('❌ [INTENT ACTIVATION] Error in Intent post-activation logic:', err);
+    }
+
+    return activatedSubscription;
 };
 
 // ✅ Get All Plans

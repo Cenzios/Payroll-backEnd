@@ -153,7 +153,7 @@ export const createPaymentSession = async (req: Request, res: Response, next: Ne
 // ✅ Handle PayHere Notify Webhook
 export const handlePayHereNotify = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        console.log('🔔 Received PayHere Notify:', req.body);
+        console.log('🔔 [PAYHERE WEBHOOK] Received Notification:', JSON.stringify(req.body, null, 2));
 
         // This endpoint logic is moved to service
         await subscriptionService.processPayHereNotify(req.body);

@@ -1,5 +1,6 @@
 import prisma from '../config/db';
 import Stripe from 'stripe';
+import { sendWelcomeEmail } from './emailService';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
     apiVersion: '2024-12-18.acacia' as any, // Use latest or a specific version
@@ -218,14 +219,39 @@ const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
         }
 
         // ACTIVATE
-        await tx.subscription.update({
+        console.log(`🚀 [STRIPE ACTIVATION] Activating subscription ${subscription.id} for user ${userId}`);
+        const activatedSubscription = await tx.subscription.update({
             where: { id: subscription.id },
             data: {
                 status: 'ACTIVE',
                 activatedAt: new Date()
+            },
+            include: {
+                plan: true,
+                user: true
             }
         });
-        console.log(`✅ Subscription ${subscription.id} ACTIVATED for User ${userId}`);
+        console.log(`✅ [STRIPE ACTIVATION] Subscription ${subscription.id} confirmed ACTIVE`);
+
+        // 📧 SEND WELCOME EMAIL (If Registration)
+        if (invoice && invoice.billingType === 'REGISTRATION') {
+            console.log(`📧 [EMAIL] Triggering welcome email (Stripe) to: ${activatedSubscription.user.email}`);
+            sendWelcomeEmail(
+                activatedSubscription.user.email,
+                activatedSubscription.user.fullName,
+                stripeId, // Transaction ID
+                intent.currency,
+                intent.amount,
+                new Date(),
+                activatedSubscription.plan.name
+            ).then(() => {
+                console.log(`✅ [EMAIL] Welcome email promise resolved (Stripe)`);
+            }).catch(err => {
+                console.error('❌ [EMAIL] Failed to send welcome email (Stripe):', err);
+            });
+        } else {
+            console.log(`ℹ️ [EMAIL] Skipping welcome email (Stripe): Not a registration invoice or invoice missing.`);
+        }
     });
 };
 
