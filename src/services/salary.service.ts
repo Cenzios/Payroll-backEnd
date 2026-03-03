@@ -8,10 +8,11 @@ interface SalaryData {
     month: number;
     year: number;
     workingDays: number;
+    isEpfEnabled?: boolean;
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
-    const { employeeId, month, year, workingDays } = data;
+    const { employeeId, month, year, workingDays, isEpfEnabled = true } = data;
 
     // 1. Fetch Employee
     const employee = await prisma.employee.findFirst({
@@ -50,14 +51,14 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     let employerEPF = 0;
     let etfAmount = 0;
 
-    if (employee.epfEnabled) {
+    if (isEpfEnabled) {
         employeeEPF = (basicPay * employeeEPFRate) / 100;
         employerEPF = (basicPay * employerEPFRate) / 100;
         etfAmount = (basicPay * etfRateValue) / 100;
     }
 
-    // 4. Calculate Monthly PAYE Tax
-    const employeeTaxAmount = calculateMonthlyPAYE(basicPay, {
+    // 4. Calculate Monthly PAYE Tax (only if EPF is enabled)
+    const employeeTaxAmount = isEpfEnabled ? calculateMonthlyPAYE(basicPay, {
         taxFreeMonthlyLimit: Number(payrollConfig.taxFreeMonthlyLimit),
         slab1Limit: Number(payrollConfig.slab1Limit),
         slab1Rate: Number(payrollConfig.slab1Rate),
@@ -68,7 +69,7 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         slab4Limit: Number(payrollConfig.slab4Limit),
         slab4Rate: Number(payrollConfig.slab4Rate),
         slab5Rate: Number(payrollConfig.slab5Rate),
-    });
+    }) : 0;
 
     // 5. Calculate Net Salary
     // Net Salary = Basic Pay - Employee EPF - PAYE Tax
