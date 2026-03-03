@@ -140,6 +140,7 @@ export const handleStripeWebhook = async (signature: string, rawBody: Buffer) =>
 // ✅ Internal Logic for Payment Success
 const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
     const stripeId = stripeIntent.id;
+    console.log(`DEBUG: Entering handlePaymentSuccess for Stripe ID: ${stripeId}`);
 
     // 1. Find Intent
     const intent = await prisma.paymentIntent.findUnique({
@@ -231,6 +232,16 @@ const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
                 user: true
             }
         });
+
+        // 📝 LOG PAYMENT DETAILS FOR USER SIGNUP IDENTIFICATION
+        console.log('************************************************');
+        console.log('✅ SUCCESSFUL PAYMENT & SIGNUP IDENTIFIED');
+        console.log(`Transaction ID: ${stripeId}`);
+        console.log(`Amount        : ${intent.currency}${intent.amount}`);
+        console.log(`Date          : ${new Date().toLocaleString()}`);
+        console.log(`Plan          : ${activatedSubscription.plan.name}`);
+        console.log('************************************************');
+
         console.log(`✅ [STRIPE ACTIVATION] Subscription ${subscription.id} confirmed ACTIVE`);
 
         // 📧 SEND WELCOME EMAIL (If Registration)
@@ -249,7 +260,8 @@ const handlePaymentSuccess = async (stripeIntent: Stripe.PaymentIntent) => {
             }).catch(err => {
                 console.error('❌ [EMAIL] Failed to send welcome email (Stripe):', err);
             });
-        } else {
+        }
+        else {
             console.log(`ℹ️ [EMAIL] Skipping welcome email (Stripe): Not a registration invoice or invoice missing.`);
         }
     });
