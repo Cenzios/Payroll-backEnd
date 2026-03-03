@@ -34,21 +34,31 @@ transporter.verify((error, success) => {
     }
 });
 
-export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
+export const sendVerificationEmail = async (email: string, token: string, fullName: string): Promise<void> => {
     const frontendUrl = process.env.FRONTEND_URL;
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: email,
-        subject: 'Verify Your Email Address',
+        subject: 'Verify your email address for Payroll',
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Verify your email address</h2>
-                <p>Thank you for signing up. Please click the link below to verify your email address:</p>
-                <a href="${verificationLink}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email</a>
-                <p>This link will expire in 15 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #2c3e50;">Verify your email address for Payroll</h2>
+                <p>Hello ${fullName},</p>
+                <p>Thanks for signing up for Payroll!</p>
+                <p>To finish creating your account and start setting up your payroll, please verify your email address by clicking the link below:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify My Email</a>
+                </div>
+
+                <p>If the button above doesn't work, copy and paste the following link into your browser:</p>
+                <p style="word-break: break-all; color: #007bff;">${verificationLink}</p>
+
+                <p style="margin-top: 30px; font-size: 0.9em; color: #666;">
+                    Note: This link will expire in 15 minutes. If you didn't create an account with Payroll, you can safely ignore this email.
+                </p>
             </div>
         `,
     };
