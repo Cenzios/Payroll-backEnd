@@ -42,7 +42,7 @@ const startSignup = async (data: StartSignupData) => {
 
     // Send verification email
     try {
-        await sendVerificationEmail(email, signupToken);
+        await sendVerificationEmail(email, signupToken, fullName);
     } catch (emailError) {
         throw new Error('Failed to send verification email. Please check your email address and try again.');
     }
