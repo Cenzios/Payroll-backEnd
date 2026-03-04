@@ -75,7 +75,6 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
 
     // Remove deprecated fields
     const {
-        otRate,
         transportAllowance,
         mealAllowance,
         otherAllowance,
@@ -175,7 +174,6 @@ const updateEmployee = async (userId: string, companyId: string, id: string, dat
     }
 
     const {
-        otRate,
         transportAllowance,
         mealAllowance,
         otherAllowance,

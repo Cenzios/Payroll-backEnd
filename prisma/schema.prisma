@@ -152,6 +152,7 @@ model Employee {
 
   // Salary Details
   dailyRate Float @default(0) @map("daily_rate")
+  otRate    Float @default(0) @map("ot_rate")
 
   // EPF Settings
   epfEnabled Boolean @default(true) @map("epf_enabled")
