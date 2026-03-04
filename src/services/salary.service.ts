@@ -8,11 +8,23 @@ interface SalaryData {
     month: number;
     year: number;
     workingDays: number;
+    otHours?: number;
+    otAmount?: number;
+    salaryAdvance?: number;
     isEpfEnabled?: boolean;
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
-    const { employeeId, month, year, workingDays, isEpfEnabled = true } = data;
+    const {
+        employeeId,
+        month,
+        year,
+        workingDays,
+        otHours = 0,
+        otAmount = 0,
+        salaryAdvance = 0,
+        isEpfEnabled = true
+    } = data;
 
     // 1. Fetch Employee
     const employee = await prisma.employee.findFirst({
@@ -72,8 +84,8 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     }) : 0;
 
     // 5. Calculate Net Salary
-    // Net Salary = Basic Pay - Employee EPF - PAYE Tax
-    const netSalary = basicPay - employeeEPF - employeeTaxAmount;
+    // Net Salary = (Basic Pay + OT Amount) - Employee EPF - PAYE Tax - Salary Advance
+    const netSalary = (basicPay + otAmount) - employeeEPF - employeeTaxAmount - salaryAdvance;
 
     // 6. Save to DB with rate snapshots
     const salaryRecord = await prisma.salary.create({
@@ -92,6 +104,9 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             etfRate: new Decimal(etfRateValue),
             taxConfigId: payrollConfig.id,
             netSalary,
+            otHours,
+            otAmount,
+            salaryAdvance,
             employeeId,
             companyId
         }

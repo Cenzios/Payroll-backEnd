@@ -97,10 +97,13 @@ const getCompanyPayrollSummary = async (
             monthTotalEmployees++;
 
             const workingDays = salary.workingDays;
-            const grossPay = Math.round(salary.basicPay);
+            const basicPay = Math.round(salary.basicPay);
+            const otAmount = Math.round(salary.otAmount);
+            const grossPay = basicPay + otAmount;
             const netPay = Math.round(salary.netSalary);
             const employeeEPF = Math.round(salary.employeeEPF);
             const tax = Math.round(salary.employeeTaxAmount);
+            const salaryAdvance = Math.round(salary.salaryAdvance);
             const employerEPF = Math.round(salary.employerEPF);
             const etf = Math.round(salary.etfAmount);
             const companyEPFETF = employerEPF + etf;
@@ -115,10 +118,14 @@ const getCompanyPayrollSummary = async (
                 employeeCode: employee.employeeId,
                 employeeName: employee.fullName,
                 workingDays,
+                basicPay,
+                otHours: salary.otHours,
+                otAmount,
                 grossPay,
                 netPay,
                 tax,
                 employeeEPF,
+                salaryAdvance,
                 companyEPFETF,
             };
         }).filter(Boolean);
@@ -239,14 +246,17 @@ const getSelectedEmployeesSummary = async (
 
         // Calculate values and round EACH value BEFORE summing to avoid precision errors
         const workedDays = salary.workingDays;
-        const grossPay = Math.round(salary.basicPay);
+        const basicPay = Math.round(salary.basicPay);
+        const otAmount = Math.round(salary.otAmount);
+        const grossPay = basicPay + otAmount;
         const netPay = Math.round(salary.netSalary);
         const employeeEPF = Math.round(salary.employeeEPF);
         const tax = Math.round(salary.employeeTaxAmount);
+        const salaryAdvance = Math.round(salary.salaryAdvance);
         const employerEPF = Math.round(salary.employerEPF);
         const etf = Math.round(salary.etfAmount);
         const companyEPFETF = employerEPF + etf;
-        const deductions = employeeEPF + tax;
+        const deductions = employeeEPF + tax + salaryAdvance;
 
         // Aggregate totals - values are already rounded
         totalGrossPay += grossPay;
@@ -260,9 +270,13 @@ const getSelectedEmployeesSummary = async (
             employeeCode: employee.employeeId,
             employeeName: employee.fullName,
             workedDays,
+            basicPay,
+            otHours: salary.otHours,
+            otAmount,
             grossPay,
             netPay,
             tax,
+            salaryAdvance,
             deductions,
             employeeEPF,
             companyEPFETF,
@@ -344,9 +358,11 @@ const getEmployeePayrollSummary = async (
     let annualCompanyEPFETF = 0;
 
     const monthlyBreakdown = employee.salaries.map((salary) => {
-        const grossPay = salary.basicPay;
+        const basicPay = salary.basicPay;
+        const otAmount = salary.otAmount;
+        const grossPay = basicPay + otAmount;
         const tax = salary.employeeTaxAmount;
-        const deductions = salary.employeeEPF + tax;
+        const deductions = salary.employeeEPF + tax + salary.salaryAdvance;
         const netPay = salary.netSalary;
         const companyEPFETF = salary.employerEPF + salary.etfAmount;
 
@@ -361,9 +377,13 @@ const getEmployeePayrollSummary = async (
         return {
             month: getMonthName(salary.month),
             workedDays: salary.workingDays,
+            basicPay: Math.round(basicPay),
+            otHours: salary.otHours,
+            otAmount: Math.round(otAmount),
             grossPay: Math.round(grossPay),
             netPay: Math.round(netPay),
             tax: Math.round(tax),
+            salaryAdvance: Math.round(salary.salaryAdvance),
             deductions: Math.round(deductions),
             employeeEPF: Math.round(salary.employeeEPF),
             companyEPFETF: Math.round(companyEPFETF),
