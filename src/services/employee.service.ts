@@ -81,6 +81,8 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
         ...validData
     } = data;
 
+    console.log("🔥 CREATE EMPLOYEE PAYLOAD:", validData);
+
     return await prisma.employee.create({
         data: {
             ...validData,
