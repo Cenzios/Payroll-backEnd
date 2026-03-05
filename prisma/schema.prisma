@@ -152,6 +152,7 @@ model Employee {
 
   // Salary Details
   dailyRate Float @default(0) @map("daily_rate")
+  otRate    Float @default(0) @map("ot_rate")
 
   // EPF Settings
   epfEnabled Boolean @default(true) @map("epf_enabled")
@@ -177,6 +178,9 @@ model Salary {
 
   // Inputs
   workingDays Int @map("working_days")
+  otHours     Float @default(0) @map("ot_hours")
+  otAmount    Float @default(0) @map("ot_amount")
+  salaryAdvance Float @default(0) @map("salary_advance")
 
   // Calculated Values
   basicPay Float @map("basic_pay")

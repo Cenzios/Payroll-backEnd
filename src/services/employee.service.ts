@@ -75,12 +75,13 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
 
     // Remove deprecated fields
     const {
-        otRate,
         transportAllowance,
         mealAllowance,
         otherAllowance,
         ...validData
     } = data;
+
+    console.log("🔥 CREATE EMPLOYEE PAYLOAD:", validData);
 
     return await prisma.employee.create({
         data: {
@@ -175,7 +176,6 @@ const updateEmployee = async (userId: string, companyId: string, id: string, dat
     }
 
     const {
-        otRate,
         transportAllowance,
         mealAllowance,
         otherAllowance,
