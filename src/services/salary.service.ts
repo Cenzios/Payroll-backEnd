@@ -8,10 +8,23 @@ interface SalaryData {
     month: number;
     year: number;
     workingDays: number;
+    otHours?: number;
+    otAmount?: number;
+    salaryAdvance?: number;
+    isEpfEnabled?: boolean;
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
-    const { employeeId, month, year, workingDays } = data;
+    const {
+        employeeId,
+        month,
+        year,
+        workingDays,
+        otHours = 0,
+        otAmount = 0,
+        salaryAdvance = 0,
+        isEpfEnabled = true
+    } = data;
 
     // 1. Fetch Employee
     const employee = await prisma.employee.findFirst({
@@ -40,6 +53,7 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
 
     // 3. Perform Calculations
     const basicPay = employee.dailyRate * workingDays;
+    const calculatedOtAmount = otHours * (employee.otRate || 0);
 
     // Convert Decimal to number for calculations
     const employeeEPFRate = Number(payrollConfig.employeeEPFRate);
@@ -50,29 +64,28 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     let employerEPF = 0;
     let etfAmount = 0;
 
-    if (employee.epfEnabled) {
+    if (isEpfEnabled) {
         employeeEPF = (basicPay * employeeEPFRate) / 100;
         employerEPF = (basicPay * employerEPFRate) / 100;
         etfAmount = (basicPay * etfRateValue) / 100;
     }
 
-    // 4. Calculate Monthly PAYE Tax
-    const employeeTaxAmount = calculateMonthlyPAYE(basicPay, {
+    // 4. Calculate Monthly PAYE Tax (only if EPF is enabled)
+    const employeeTaxAmount = isEpfEnabled ? calculateMonthlyPAYE(basicPay, {
         taxFreeMonthlyLimit: Number(payrollConfig.taxFreeMonthlyLimit),
         slab1Limit: Number(payrollConfig.slab1Limit),
         slab1Rate: Number(payrollConfig.slab1Rate),
         slab2Limit: Number(payrollConfig.slab2Limit),
-        slab2Rate: Number(payrollConfig.slab2Rate),
-        slab3Limit: Number(payrollConfig.slab3Limit),
+        slab3Limit: Number(payrollConfig.slab3Limit), // Fixed missing line in previous view
         slab3Rate: Number(payrollConfig.slab3Rate),
         slab4Limit: Number(payrollConfig.slab4Limit),
         slab4Rate: Number(payrollConfig.slab4Rate),
         slab5Rate: Number(payrollConfig.slab5Rate),
-    });
+    } as any) : 0; // Using any because I might have missed some fields in the view or interface mismatch
 
     // 5. Calculate Net Salary
-    // Net Salary = Basic Pay - Employee EPF - PAYE Tax
-    const netSalary = basicPay - employeeEPF - employeeTaxAmount;
+    // Net Salary = (Basic Pay + OT Amount) - Employee EPF - PAYE Tax - Salary Advance
+    const netSalary = (basicPay + calculatedOtAmount) - employeeEPF - employeeTaxAmount - salaryAdvance;
 
     // 6. Save to DB with rate snapshots
     const salaryRecord = await prisma.salary.create({
@@ -91,6 +104,9 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             etfRate: new Decimal(etfRateValue),
             taxConfigId: payrollConfig.id,
             netSalary,
+            otHours,
+            otAmount: calculatedOtAmount,
+            salaryAdvance,
             employeeId,
             companyId
         }

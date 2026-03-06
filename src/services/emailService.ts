@@ -34,21 +34,31 @@ transporter.verify((error, success) => {
     }
 });
 
-export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
+export const sendVerificationEmail = async (email: string, token: string, fullName: string): Promise<void> => {
     const frontendUrl = process.env.FRONTEND_URL;
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: email,
-        subject: 'Verify Your Email Address',
+        subject: 'Verify your email address for Payroll',
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Verify your email address</h2>
-                <p>Thank you for signing up. Please click the link below to verify your email address:</p>
-                <a href="${verificationLink}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email</a>
-                <p>This link will expire in 15 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #2c3e50;">Verify your email address for Payroll</h2>
+                <p>Hello ${fullName},</p>
+                <p>Thanks for signing up for Payroll!</p>
+                <p>To finish creating your account and start setting up your payroll, please verify your email address by clicking the link below:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify My Email</a>
+                </div>
+
+                <p>If the button above doesn't work, copy and paste the following link into your browser:</p>
+                <p style="word-break: break-all; color: #007bff;">${verificationLink}</p>
+
+                <p style="margin-top: 30px; font-size: 0.9em; color: #666;">
+                    Note: This link will expire in 15 minutes. If you didn't create an account with Payroll, you can safely ignore this email.
+                </p>
             </div>
         `,
     };
@@ -139,5 +149,62 @@ export const sendSuspiciousLoginWarning = async (email: string, userId: string, 
         console.log(`Suspicious login warning sent to ${email}`);
     } catch (error) {
         console.error('Error sending suspicious login warning:', error);
+    }
+};
+
+export const sendWelcomeEmail = async (
+    email: string,
+    userName: string,
+    transactionId: string,
+    currency: string,
+    amount: number,
+    date: Date,
+    planName: string
+): Promise<void> => {
+    const formattedDate = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const dashboardLink = `${process.env.FRONTEND_URL}/dashboard`;
+
+    const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: email,
+        subject: 'Welcome to Payroll! Your Account is Ready & Payment Confirmed',
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #2c3e50;">Welcome to Payroll!</h2>
+                <p>Hi ${userName},</p>
+                <p>We are thrilled to have you on board. By choosing us, you have picked the right place to handle your payroll with ease and precision. Your account has been successfully registered, and we are ready to help you streamline your work.</p>
+                <p>This email also confirms that your initial payment was successful. You now have full access to all the features included in your plan.</p>
+                
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">Payment Details:</h3>
+                    <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${transactionId}</p>
+                    <p style="margin: 5px 0;"><strong>Amount:</strong> ${currency} ${amount.toFixed(2)}</p>
+                    <p style="margin: 5px 0;"><strong>Date:</strong> ${formattedDate}</p>
+                    <p style="margin: 5px 0;"><strong>Plan:</strong> ${planName}</p>
+                </div>
+
+                <p><strong>Next Steps:</strong> You can view your detailed invoice and billing history at any time from your account dashboard.</p>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="${dashboardLink}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to My Dashboard</a>
+                </div>
+
+                <p style="margin-top: 30px;">We are excited to see what you achieve with us!</p>
+                <p style="margin-bottom: 0;">Best regards,</p>
+                <p style="margin-top: 5px;"><strong>The Payroll Team</strong></p>
+            </div>
+        `,
+    };
+
+    try {
+        console.log(`📨 [SENDING EMAIL] To: ${email}, Subject: ${mailOptions.subject}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`✅ [EMAIL SENT] Message ID: ${info.messageId}`);
+    } catch (error) {
+        console.error('❌ [EMAIL ERROR] Failed to send welcome email:', error);
     }
 };

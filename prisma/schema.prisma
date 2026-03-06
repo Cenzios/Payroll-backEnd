@@ -141,7 +141,6 @@ model Employee {
   id            String  @id @default(uuid())
   fullName      String  @map("full_name")
   address       String
-  nic           String  @unique
   employeeId    String  @map("employee_id") // Internal ID given by company
   contactNumber String  @map("contact_number")
   email         String?
@@ -153,6 +152,7 @@ model Employee {
 
   // Salary Details
   dailyRate Float @default(0) @map("daily_rate")
+  otRate    Float @default(0) @map("ot_rate")
 
   // EPF Settings
   epfEnabled Boolean @default(true) @map("epf_enabled")
@@ -168,7 +168,6 @@ model Employee {
   company   Company  @relation(fields: [companyId], references: [id])
   salaries  Salary[]
 
-  @@unique([companyId, employeeId]) // Employee ID must be unique within a company
   @@map("employee")
 }
 
@@ -179,6 +178,9 @@ model Salary {
 
   // Inputs
   workingDays Int @map("working_days")
+  otHours     Float @default(0) @map("ot_hours")
+  otAmount    Float @default(0) @map("ot_amount")
+  salaryAdvance Float @default(0) @map("salary_advance")
 
   // Calculated Values
   basicPay Float @map("basic_pay")
