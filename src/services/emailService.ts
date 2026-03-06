@@ -38,6 +38,11 @@ export const sendVerificationEmail = async (email: string, token: string, fullNa
     const frontendUrl = process.env.FRONTEND_URL;
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
+    console.log('\n=============================================');
+    console.log('✅ VERIFICATION LINK (LOCAL DEV):');
+    console.log(verificationLink);
+    console.log('=============================================\n');
+
     const mailOptions = {
         from: process.env.EMAIL_FROM,
         to: email,
