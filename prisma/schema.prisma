@@ -142,6 +142,7 @@ model Employee {
   fullName      String  @map("full_name")
   address       String
   employeeId    String  @map("employee_id") // Internal ID given by company
+  employeeNIC   String? @map("employee_nic")
   contactNumber String  @map("contact_number")
   email         String?
 
@@ -151,11 +152,16 @@ model Employee {
   department  String
 
   // Salary Details
-  dailyRate Float @default(0) @map("daily_rate")
-  otRate    Float @default(0) @map("ot_rate")
+  basicSalary      Float      @default(0) @map("basic_salary")
+  otRate           Float      @default(0) @map("ot_rate")
+  salaryType       SalaryType @default(DAILY) @map("salary_type")
+  allowanceEnabled Boolean    @default(false) @map("allowance_enabled")
+  deductionEnabled Boolean    @default(false) @map("deduction_enabled")
 
   // EPF Settings
-  epfEnabled Boolean @default(true) @map("epf_enabled")
+  epfEnabled   Boolean @default(true) @map("epf_enabled")
+  epfNumber    String? @map("epf_number")
+  epfEtfAmount Float?  @map("epf_etf_amount")
 
   status String @default("ACTIVE") // ACTIVE, INACTIVE
 
@@ -164,11 +170,42 @@ model Employee {
   deletedAt DateTime? @map("deleted_at") // Soft Delete field
 
   // Relations
-  companyId String   @map("company_id")
-  company   Company  @relation(fields: [companyId], references: [id])
-  salaries  Salary[]
+  companyId           String               @map("company_id")
+  company             Company              @relation(fields: [companyId], references: [id])
+  salaries            Salary[]
+  recurringAllowances RecurringAllowance[]
+  recurringDeductions RecurringDeduction[]
 
   @@map("employee")
+}
+
+enum SalaryType {
+  DAILY
+  MONTHLY
+}
+
+model RecurringAllowance {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  type       String
+  amount     Float
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("recurring_allowance")
+}
+
+model RecurringDeduction {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  type       String
+  amount     Float
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("recurring_deduction")
 }
 
 model Salary {
@@ -177,17 +214,24 @@ model Salary {
   year  Int
 
   // Inputs
-  workingDays Int @map("working_days")
-  otHours     Float @default(0) @map("ot_hours")
-  otAmount    Float @default(0) @map("ot_amount")
+  workingDays   Int   @map("working_days")
+  otHours       Float @default(0) @map("ot_hours")
+  otAmount      Float @default(0) @map("ot_amount")
   salaryAdvance Float @default(0) @map("salary_advance")
 
   // Calculated Values
-  basicPay Float @map("basic_pay")
+  basicSalary Float      @map("basic_salary")
+  salaryType  SalaryType @map("salary_type")
+  basicPay    Float      @map("basic_pay")
 
   employeeEPF Float @map("employee_epf")
   employerEPF Float @map("employer_epf")
   etfAmount   Float @map("etf_amount")
+
+  allowanceTotal Float @default(0) @map("allowance_total")
+  deductionTotal Float @default(0) @map("deduction_total")
+  grossSalary    Float @map("gross_salary")
+  totalDeduction Float @map("total_deduction")
 
   // Tax (PAYE)
   employeeTaxAmount Float @default(0) @map("employee_tax_amount")
@@ -204,12 +248,38 @@ model Salary {
 
   // Relations
   employeeId   String
-  employee     Employee      @relation(fields: [employeeId], references: [id])
+  employee     Employee          @relation(fields: [employeeId], references: [id])
   companyId    String
-  company      Company       @relation(fields: [companyId], references: [id])
-  payrollRates PayrollRates? @relation(fields: [taxConfigId], references: [id])
+  company      Company           @relation(fields: [companyId], references: [id])
+  payrollRates PayrollRates?     @relation(fields: [taxConfigId], references: [id])
+  allowances   SalaryAllowance[]
+  deductions   SalaryDeduction[]
 
   @@map("salary")
+}
+
+model SalaryAllowance {
+  id        String   @id @default(uuid())
+  salaryId  String   @map("salary_id")
+  type      String
+  amount    Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  salary Salary @relation(fields: [salaryId], references: [id])
+
+  @@map("salary_allowance")
+}
+
+model SalaryDeduction {
+  id        String   @id @default(uuid())
+  salaryId  String   @map("salary_id")
+  type      String
+  amount    Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  salary Salary @relation(fields: [salaryId], references: [id])
+
+  @@map("salary_deduction")
 }
 
 model PayrollRates {
