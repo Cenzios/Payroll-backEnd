@@ -46,7 +46,7 @@ async function main() {
         {
             id: "0f022c11-2a3c-49f5-9d11-30082882a8e9",
             name: "Basic",
-            price: 0.0,
+            price: 100.0,
             maxEmployees: 29,
             maxCompanies: 2,
             features: "{\"canExportData\": false, \"canViewReports\": false}",
@@ -64,7 +64,7 @@ async function main() {
             features: "{\"canExportData\": true, \"canViewReports\": true, \"prioritySupport\": false}",
             createdAt: "2026-01-20 08:22:34.855",
             description: "",
-            employeePrice: 175.0,
+            employeePrice: 75.0,
             registrationFee: 5000.0
         },
         {
@@ -76,7 +76,7 @@ async function main() {
             features: "{\"canExportData\": true, \"canViewReports\": true, \"customBranding\": true, \"prioritySupport\": true}",
             createdAt: "2026-01-20 08:22:36.051",
             description: "",
-            employeePrice: 200.0,
+            employeePrice: 50.0,
             registrationFee: 7500.0
         }
     ];
