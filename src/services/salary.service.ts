@@ -12,6 +12,9 @@ interface SalaryData {
     otAmount?: number;
     salaryAdvance?: number;
     isEpfEnabled?: boolean;
+    companyWorkingDays: number;
+    allowances?: { type: string, amount: number }[];
+    deductions?: { type: string, amount: number }[];
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
@@ -23,7 +26,10 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         otHours = 0,
         otAmount = 0,
         salaryAdvance = 0,
-        isEpfEnabled = true
+        isEpfEnabled = true,
+        companyWorkingDays,
+        allowances = [],
+        deductions = []
     } = data;
 
     // 1. Fetch Employee
@@ -52,8 +58,15 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     const payrollConfig = await getActivePayrollRates();
 
     // 3. Perform Calculations
-    const basicPay = employee.basicSalary * workingDays;
+    const basicPay = employee.salaryType === 'MONTHLY'
+        ? (employee.basicSalary / companyWorkingDays) * workingDays
+        : employee.basicSalary * workingDays;
+
     const calculatedOtAmount = otHours * (employee.otRate || 0);
+
+    // Calculate custom allowances and deductions
+    const allowanceTotal = allowances.reduce((sum, a) => sum + a.amount, 0);
+    const extraDeductionTotal = deductions.reduce((sum, d) => sum + d.amount, 0);
 
     // Convert Decimal to number for calculations
     const employeeEPFRate = Number(payrollConfig.employeeEPFRate);
@@ -84,10 +97,12 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     } as any) : 0; // Using any because I might have missed some fields in the view or interface mismatch
 
     // 5. Calculate Net Salary
-    // Net Salary = (Basic Pay + OT Amount) - Employee EPF - PAYE Tax - Salary Advance
-    const netSalary = (basicPay + calculatedOtAmount) - employeeEPF - employeeTaxAmount - salaryAdvance;
+    // Net Salary = (Basic Pay + OT Amount + Allowances) - Employee EPF - PAYE Tax - Salary Advance - Custom Deductions
+    const totalDeductionCalc = employeeEPF + employeeTaxAmount + salaryAdvance + extraDeductionTotal;
+    const grossSalaryCalc = basicPay + calculatedOtAmount + allowanceTotal;
+    const netSalary = grossSalaryCalc - totalDeductionCalc;
 
-    // 6. Save to DB with rate snapshots
+    // 6. Save to DB with nested allowances and deductions
     const salaryRecord = await prisma.salary.create({
         data: {
             month,
@@ -96,8 +111,10 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             // New snapshot fields required by the schema
             basicSalary: employee.basicSalary,
             salaryType: employee.salaryType,
-            grossSalary: basicPay + calculatedOtAmount,
-            totalDeduction: employeeEPF + employeeTaxAmount + salaryAdvance,
+            allowanceTotal,
+            deductionTotal: extraDeductionTotal,
+            grossSalary: grossSalaryCalc,
+            totalDeduction: totalDeductionCalc,
             basicPay,
             employeeEPF,
             employerEPF,
@@ -113,7 +130,13 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             otAmount: calculatedOtAmount,
             salaryAdvance,
             employeeId,
-            companyId
+            companyId,
+            allowances: {
+                create: allowances.map(a => ({ type: a.type, amount: a.amount }))
+            },
+            deductions: {
+                create: deductions.map(d => ({ type: d.type, amount: d.amount }))
+            }
         }
     });
 
