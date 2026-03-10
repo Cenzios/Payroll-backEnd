@@ -443,7 +443,7 @@ const getEmployeePayrollSummary = async (
         employeeName: employee.fullName,
         employeeCode: employee.employeeId,
         designation: employee.designation,
-        dailyRate: employee.dailyRate,
+        basicSalary: employee.basicSalary,
         joinedDate: employee.joinedDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
         monthlyBreakdown,
         annualTotals: {

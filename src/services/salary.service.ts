@@ -52,7 +52,7 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
     const payrollConfig = await getActivePayrollRates();
 
     // 3. Perform Calculations
-    const basicPay = employee.dailyRate * workingDays;
+    const basicPay = employee.basicSalary * workingDays;
     const calculatedOtAmount = otHours * (employee.otRate || 0);
 
     // Convert Decimal to number for calculations
@@ -93,6 +93,11 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
             month,
             year,
             workingDays,
+            // New snapshot fields required by the schema
+            basicSalary: employee.basicSalary,
+            salaryType: employee.salaryType,
+            grossSalary: basicPay + calculatedOtAmount,
+            totalDeduction: employeeEPF + employeeTaxAmount + salaryAdvance,
             basicPay,
             employeeEPF,
             employerEPF,
