@@ -172,6 +172,10 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
             skip,
             take: parseInt(limit.toString()),
             orderBy: { createdAt: 'desc' },
+            include: {
+                recurringAllowances: true,
+                recurringDeductions: true,
+            }
         }),
         prisma.employee.count({ where }),
     ]);
