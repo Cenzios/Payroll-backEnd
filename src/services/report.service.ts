@@ -368,6 +368,10 @@ const getEmployeePayrollSummary = async (
                     ...(month ? { month } : {}),
                 },
                 orderBy: { month: 'asc' },
+                include: {
+                    allowances: true,
+                    deductions: true
+                }
             },
         },
     });
@@ -405,9 +409,9 @@ const getEmployeePayrollSummary = async (
     const monthlyBreakdown = employee.salaries.map((salary: any) => {
         const basicPay = (salary as any).basicPay;
         const otAmount = (salary as any).otAmount;
-        const grossPay = basicPay + otAmount;
+        const grossPay = (salary as any).grossSalary || (basicPay + otAmount);
         const tax = (salary as any).employeeTaxAmount;
-        const deductions = (salary as any).employeeEPF + tax + (salary as any).salaryAdvance;
+        const deductions = (salary as any).totalDeduction || ((salary as any).employeeEPF + tax + (salary as any).salaryAdvance);
         const netPay = (salary as any).netSalary;
         const companyEPFETF = (salary as any).employerEPF + (salary as any).etfAmount;
 
@@ -436,6 +440,8 @@ const getEmployeePayrollSummary = async (
             deductions: Math.round(deductions),
             employeeEPF: Math.round(salary.employeeEPF),
             companyEPFETF: Math.round(companyEPFETF),
+            allowances: salary.allowances || [],
+            customDeductions: salary.deductions || [],
         };
     });
 
