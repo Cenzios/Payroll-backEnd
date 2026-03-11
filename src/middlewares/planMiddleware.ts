@@ -12,13 +12,19 @@ const checkPlanFeature = (featureName: string) => {
                 return;
             }
 
-            // Get Active Subscription & Plan
+            // Get Active Subscription & Plan with features
             const subscription = await prisma.subscription.findFirst({
                 where: {
                     userId,
                     status: 'ACTIVE',
                 },
-                include: { plan: true },
+                include: {
+                    plan: {
+                        include: {
+                            features: true
+                        }
+                    }
+                },
             });
 
             if (!subscription) {
@@ -26,10 +32,12 @@ const checkPlanFeature = (featureName: string) => {
                 return;
             }
 
-            const features = subscription.plan.features as Record<string, boolean> || {};
+            // Check if feature exists and is enabled in the PlanFeature table
+            const feature = subscription.plan.features.find(
+                f => f.featureName === featureName && f.isEnabled
+            );
 
-            // Check if feature is enabled
-            if (!features[featureName]) {
+            if (!feature) {
                 sendResponse(res, 403, false, `Upgrade plan to unlock ${featureName}`);
                 return;
             }

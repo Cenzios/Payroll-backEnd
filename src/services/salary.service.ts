@@ -1,15 +1,36 @@
 import prisma from '../config/db';
-import { EMPLOYEE_EPF_PERCENTAGE, EMPLOYER_EPF_PERCENTAGE, ETF_PERCENTAGE } from '../constants/payroll.constants';
+import { getActivePayrollRates } from './payroll-config.service';
+import { calculateMonthlyPAYE } from './tax-calculation.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 interface SalaryData {
     employeeId: string;
     month: number;
     year: number;
     workingDays: number;
+    otHours?: number;
+    otAmount?: number;
+    salaryAdvance?: number;
+    isEpfEnabled?: boolean;
+    companyWorkingDays: number;
+    allowances?: { type: string, amount: number }[];
+    deductions?: { type: string, amount: number }[];
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
-    const { employeeId, month, year, workingDays } = data;
+    const {
+        employeeId,
+        month,
+        year,
+        workingDays,
+        otHours = 0,
+        otAmount = 0,
+        salaryAdvance = 0,
+        isEpfEnabled = true,
+        companyWorkingDays,
+        allowances = [],
+        deductions = []
+    } = data;
 
     // 1. Fetch Employee
     const employee = await prisma.employee.findFirst({
@@ -33,35 +54,89 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         throw new Error('Salary record already exists for this month');
     }
 
-    // 2. Perform Calculations
-    const basicPay = employee.dailyRate * workingDays;
+    // 2. Load Active Payroll Configuration
+    const payrollConfig = await getActivePayrollRates();
+
+    // 3. Perform Calculations
+    const basicPay = employee.salaryType === 'MONTHLY'
+        ? (employee.basicSalary / companyWorkingDays) * workingDays
+        : employee.basicSalary * workingDays;
+
+    const calculatedOtAmount = otHours * (employee.otRate || 0);
+
+    // Calculate custom allowances and deductions
+    const allowanceTotal = allowances.reduce((sum, a) => sum + a.amount, 0);
+    const extraDeductionTotal = deductions.reduce((sum, d) => sum + d.amount, 0);
+
+    // Convert Decimal to number for calculations
+    const employeeEPFRate = Number(payrollConfig.employeeEPFRate);
+    const employerEPFRate = Number(payrollConfig.employerEPFRate);
+    const etfRateValue = Number(payrollConfig.etfRate);
 
     let employeeEPF = 0;
     let employerEPF = 0;
     let etfAmount = 0;
 
-    if (employee.epfEnabled) {
-        employeeEPF = (basicPay * EMPLOYEE_EPF_PERCENTAGE) / 100;
-        employerEPF = (basicPay * EMPLOYER_EPF_PERCENTAGE) / 100;
-        etfAmount = (basicPay * ETF_PERCENTAGE) / 100;
+    if (isEpfEnabled) {
+        employeeEPF = (basicPay * employeeEPFRate) / 100;
+        employerEPF = (basicPay * employerEPFRate) / 100;
+        etfAmount = (basicPay * etfRateValue) / 100;
     }
 
-    // Net Salary = Basic Pay - Employee EPF (NO BONUS)
-    const netSalary = basicPay - employeeEPF;
+    // 4. Calculate Monthly PAYE Tax (only if EPF is enabled)
+    const employeeTaxAmount = isEpfEnabled ? calculateMonthlyPAYE(basicPay, {
+        taxFreeMonthlyLimit: Number(payrollConfig.taxFreeMonthlyLimit),
+        slab1Limit: Number(payrollConfig.slab1Limit),
+        slab1Rate: Number(payrollConfig.slab1Rate),
+        slab2Limit: Number(payrollConfig.slab2Limit),
+        slab3Limit: Number(payrollConfig.slab3Limit), // Fixed missing line in previous view
+        slab3Rate: Number(payrollConfig.slab3Rate),
+        slab4Limit: Number(payrollConfig.slab4Limit),
+        slab4Rate: Number(payrollConfig.slab4Rate),
+        slab5Rate: Number(payrollConfig.slab5Rate),
+    } as any) : 0; // Using any because I might have missed some fields in the view or interface mismatch
 
-    // 3. Save to DB
+    // 5. Calculate Net Salary
+    // Net Salary = (Basic Pay + OT Amount + Allowances) - Employee EPF - PAYE Tax - Salary Advance - Custom Deductions
+    const totalDeductionCalc = employeeEPF + employeeTaxAmount + salaryAdvance + extraDeductionTotal;
+    const grossSalaryCalc = basicPay + calculatedOtAmount + allowanceTotal;
+    const netSalary = grossSalaryCalc - totalDeductionCalc;
+
+    // 6. Save to DB with nested allowances and deductions
     const salaryRecord = await prisma.salary.create({
         data: {
             month,
             year,
             workingDays,
+            // New snapshot fields required by the schema
+            basicSalary: employee.basicSalary,
+            salaryType: employee.salaryType,
+            allowanceTotal,
+            deductionTotal: extraDeductionTotal,
+            grossSalary: grossSalaryCalc,
+            totalDeduction: totalDeductionCalc,
             basicPay,
             employeeEPF,
             employerEPF,
             etfAmount,
+            employeeTaxAmount,
+            // Snapshot rates used for this calculation (legal compliance)
+            employeeEPFRate: new Decimal(employeeEPFRate),
+            employerEPFRate: new Decimal(employerEPFRate),
+            etfRate: new Decimal(etfRateValue),
+            taxConfigId: payrollConfig.id,
             netSalary,
+            otHours,
+            otAmount: calculatedOtAmount,
+            salaryAdvance,
             employeeId,
-            companyId
+            companyId,
+            allowances: {
+                create: allowances.map(a => ({ type: a.type, amount: a.amount }))
+            },
+            deductions: {
+                create: deductions.map(d => ({ type: d.type, amount: d.amount }))
+            }
         }
     });
 
@@ -100,3 +175,4 @@ const getPayslip = async (companyId: string, salaryId: string) => {
 };
 
 export { calculateAndSaveSalary, getSalaryHistory, getPayslip };
+

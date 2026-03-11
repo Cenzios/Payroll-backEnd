@@ -2,20 +2,23 @@ import express from 'express';
 import * as reportController from '../controllers/report.controller';
 import {
     companyPayrollSummaryValidation,
-    employeePayrollSummaryValidation
+    employeePayrollSummaryValidation,
+    selectedEmployeesSummaryValidation
 } from '../validations/report.validation';
 import validate from '../middlewares/validateRequest';
 import { protect } from '../middlewares/authMiddleware';
+import { requireActiveSubscription } from '../middlewares/signupFlowMiddleware';
 
 const router = express.Router();
 
-// Protect all report routes - JWT authentication required
+// All report routes require authentication and ACTIVE subscription
 router.use(protect);
+router.use(requireActiveSubscription);
 
 /**
  * GET /api/v1/reports/company-payroll-summary
- * Query params: companyId, month, year
- * Returns: Company payroll summary with employee list and totals
+ * Query params: companyId, startMonth, startYear, endMonth, endYear
+ * Returns: Company payroll summary grouped by month with overall totals
  */
 router.get(
     '/company-payroll-summary',
@@ -26,7 +29,7 @@ router.get(
 
 /**
  * GET /api/v1/reports/employee-payroll-summary
- * Query params: employeeId, year
+ * Query params: employeeId, companyId, year
  * Returns: Employee monthly breakdown and annual totals
  */
 router.get(
@@ -34,6 +37,18 @@ router.get(
     employeePayrollSummaryValidation,
     validate,
     reportController.getEmployeePayrollSummary
+);
+
+/**
+ * POST /api/v1/reports/selected-employees-summary
+ * Body: { companyId, employeeIds[], month, year }
+ * Returns: Selected employees summary with metadata and totals
+ */
+router.post(
+    '/selected-employees-summary',
+    selectedEmployeesSummaryValidation,
+    validate,
+    reportController.getSelectedEmployeesSummary
 );
 
 export default router;
