@@ -30,6 +30,11 @@ interface EmployeeData {
     recurringAllowances?: RecurringEntry[];
     recurringDeductions?: RecurringEntry[];
     status?: string;
+    // Bank Details
+    bankName?: string;
+    accountNumber?: string;
+    branchName?: string;
+    accountHolderName?: string;
     // Deprecated — filtered out
     dailyRate?: number;
     transportAllowance?: number;
@@ -99,48 +104,68 @@ const createEmployee = async (userId: string, companyId: string, data: EmployeeD
         dailyRate,           // deprecated — ignored
         recurringAllowances,
         recurringDeductions,
+        bankName,
+        accountNumber,
+        branchName,
+        accountHolderName,
         ...employeeFields
     } = data;
 
     console.log('🔥 CREATE EMPLOYEE PAYLOAD:', employeeFields);
 
-    // 7. Create employee
-    const employee = await prisma.employee.create({
-        data: {
-            ...employeeFields,
-            companyId,
-        },
+    // 7. Create employee and related records in a transaction
+    return await prisma.$transaction(async (tx) => {
+        const employee = await tx.employee.create({
+            data: {
+                ...employeeFields,
+                companyId,
+            },
+        });
+
+        // 8. Save recurring allowances if enabled and provided
+        if (data.allowanceEnabled && recurringAllowances && recurringAllowances.length > 0) {
+            const validAllowances = recurringAllowances.filter(a => a.type?.trim() && Number(a.amount) > 0);
+            if (validAllowances.length > 0) {
+                await tx.recurringAllowance.createMany({
+                    data: validAllowances.map(a => ({
+                        employeeId: employee.id,
+                        type: a.type.trim(),
+                        amount: Number(a.amount),
+                    })),
+                });
+            }
+        }
+
+        // 9. Save recurring deductions if enabled and provided
+        if (data.deductionEnabled && recurringDeductions && recurringDeductions.length > 0) {
+            const validDeductions = recurringDeductions.filter(d => d.type?.trim() && Number(d.amount) > 0);
+            if (validDeductions.length > 0) {
+                await tx.recurringDeduction.createMany({
+                    data: validDeductions.map(d => ({
+                        employeeId: employee.id,
+                        type: d.type.trim(),
+                        amount: Number(d.amount),
+                    })),
+                });
+            }
+        }
+
+        // 10. Save Bank Details if provided
+        if (data.bankName && data.accountNumber) {
+            await tx.employeeBank.create({
+                data: {
+                    employeeId: employee.id,
+                    bankName: data.bankName,
+                    accountNumber: data.accountNumber,
+                    branchName: data.branchName || '',
+                    accountHolderName: data.accountHolderName || employee.fullName,
+                    updatedAt: new Date()
+                }
+            });
+        }
+
+        return employee;
     });
-
-    // 8. Save recurring allowances if enabled and provided
-    if (data.allowanceEnabled && recurringAllowances && recurringAllowances.length > 0) {
-        const validAllowances = recurringAllowances.filter(a => a.type?.trim() && a.amount > 0);
-        if (validAllowances.length > 0) {
-            await prisma.recurringAllowance.createMany({
-                data: validAllowances.map(a => ({
-                    employeeId: employee.id,
-                    type: a.type.trim(),
-                    amount: a.amount,
-                })),
-            });
-        }
-    }
-
-    // 9. Save recurring deductions if enabled and provided
-    if (data.deductionEnabled && recurringDeductions && recurringDeductions.length > 0) {
-        const validDeductions = recurringDeductions.filter(d => d.type?.trim() && d.amount > 0);
-        if (validDeductions.length > 0) {
-            await prisma.recurringDeduction.createMany({
-                data: validDeductions.map(d => ({
-                    employeeId: employee.id,
-                    type: d.type.trim(),
-                    amount: d.amount,
-                })),
-            });
-        }
-    }
-
-    return employee;
 };
 
 const getEmployees = async (userId: string, companyId: string, page: number = 1, limit: number = 10, search: string = '', status?: string) => {
@@ -166,7 +191,7 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
         where.status = status;
     }
 
-    const [employees, total] = await Promise.all([
+    const [employeesRaw, total] = await Promise.all([
         prisma.employee.findMany({
             where,
             skip,
@@ -175,10 +200,20 @@ const getEmployees = async (userId: string, companyId: string, page: number = 1,
             include: {
                 recurringAllowances: true,
                 recurringDeductions: true,
+                bank: true
             }
         }),
         prisma.employee.count({ where }),
     ]);
+
+    const employees = employeesRaw.map(emp => ({
+        ...emp,
+        bankName: emp.bank?.bankName,
+        accountNumber: emp.bank?.accountNumber,
+        branchName: emp.bank?.branchName,
+        accountHolderName: emp.bank?.accountHolderName,
+        bank: undefined // Clean up if desired
+    }));
 
     return { employees, total, page, totalPages: Math.ceil(total / limit) };
 };
@@ -191,13 +226,25 @@ const getEmployeeById = async (userId: string, companyId: string, id: string) =>
         throw new Error('Company not found or you do not have permission to access it');
     }
 
-    return await prisma.employee.findFirst({
+    const employee = await prisma.employee.findFirst({
         where: { id, companyId },
         include: {
             recurringAllowances: true,
             recurringDeductions: true,
+            bank: true
         }
     });
+
+    if (!employee) return null;
+
+    return {
+        ...employee,
+        bankName: employee.bank?.bankName,
+        accountNumber: employee.bank?.accountNumber,
+        branchName: employee.bank?.branchName,
+        accountHolderName: employee.bank?.accountHolderName,
+        bank: undefined
+    };
 };
 
 const updateEmployee = async (userId: string, companyId: string, id: string, data: Partial<EmployeeData>) => {
@@ -237,12 +284,41 @@ const updateEmployee = async (userId: string, companyId: string, id: string, dat
         dailyRate,
         recurringAllowances,
         recurringDeductions,
+        bankName,
+        accountNumber,
+        branchName,
+        accountHolderName,
         ...validData
     } = data;
 
-    return await prisma.employee.update({
-        where: { id },
-        data: validData,
+    return await prisma.$transaction(async (tx) => {
+        const updatedEmployee = await tx.employee.update({
+            where: { id },
+            data: validData,
+        });
+
+        if (bankName && accountNumber) {
+            await tx.employeeBank.upsert({
+                where: { employeeId: id },
+                update: {
+                    bankName,
+                    accountNumber,
+                    branchName: branchName || '',
+                    accountHolderName: accountHolderName || updatedEmployee.fullName,
+                    updatedAt: new Date()
+                },
+                create: {
+                    employeeId: id,
+                    bankName,
+                    accountNumber,
+                    branchName: branchName || '',
+                    accountHolderName: accountHolderName || updatedEmployee.fullName,
+                    updatedAt: new Date()
+                }
+            });
+        }
+
+        return updatedEmployee;
     });
 };
 

@@ -95,6 +95,7 @@ model Company {
   owner     User       @relation(fields: [ownerId], references: [id])
   employees Employee[]
   salaries  Salary[]
+  loans     Loan[]
 
   @@map("company")
 }
@@ -175,6 +176,8 @@ model Employee {
   salaries            Salary[]
   recurringAllowances RecurringAllowance[]
   recurringDeductions RecurringDeduction[]
+  bank                EmployeeBank?
+  loans               Loan[]
 
   @@map("employee")
 }
@@ -467,4 +470,100 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+model EmployeeBank {
+  id         String @id @default(uuid())
+  employeeId String @unique @map("employee_id")
+
+  accountHolderName String @map("account_holder_name")
+  bankName          String @map("bank_name")
+  branchName        String @map("branch_name")
+  accountNumber     String @map("account_number")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_bank")
+}
+
+enum InterestRateType {
+  MONTHLY
+  ANNUALLY
+}
+
+model Loan {
+  id String @id @default(uuid())
+
+  loanId String @map("loan_id")
+
+  employeeId String @map("employee_id")
+  companyId  String @map("company_id")
+
+  employeeNameSnapshot String @map("employee_name_snapshot")
+
+  loanTitle   String  @map("loan_title")
+  description String?
+
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  interestRateType InterestRateType @map("interest_rate_type")
+
+  amount Float
+
+  installmentCount Int @map("installment_count")
+
+  interestRate Float @map("interest_rate")
+
+  monthlyPremium Float @map("monthly_premium")
+
+  supportingDocId String? @map("supporting_doc_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  installments LoanInstallment[]
+
+  @@map("loan")
+}
+
+enum LoanInstallmentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  SKIPPED
+}
+
+model LoanInstallment {
+  id String @id @default(uuid())
+
+  loanId String @map("loan_id")
+
+  installmentNumber Int @map("installment_number")
+
+  dueDate DateTime @map("due_date")
+
+  amount Float
+
+  paidAmount Float @default(0) @map("paid_amount")
+
+  status LoanInstallmentStatus @default(PENDING)
+
+  salaryId String? @map("salary_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@map("loan_installment")
 }
