@@ -89,58 +89,103 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         slab1Limit: Number(payrollConfig.slab1Limit),
         slab1Rate: Number(payrollConfig.slab1Rate),
         slab2Limit: Number(payrollConfig.slab2Limit),
-        slab3Limit: Number(payrollConfig.slab3Limit), // Fixed missing line in previous view
+        slab3Limit: Number(payrollConfig.slab3Limit),
         slab3Rate: Number(payrollConfig.slab3Rate),
         slab4Limit: Number(payrollConfig.slab4Limit),
         slab4Rate: Number(payrollConfig.slab4Rate),
         slab5Rate: Number(payrollConfig.slab5Rate),
-    } as any) : 0; // Using any because I might have missed some fields in the view or interface mismatch
+    } as any) : 0;
 
-    // 5. Calculate Net Salary
-    // Net Salary = (Basic Pay + OT Amount + Allowances) - Employee EPF - PAYE Tax - Salary Advance - Custom Deductions
-    const totalDeductionCalc = employeeEPF + employeeTaxAmount + salaryAdvance + extraDeductionTotal;
-    const grossSalaryCalc = basicPay + calculatedOtAmount + allowanceTotal;
-    const netSalary = grossSalaryCalc - totalDeductionCalc;
-
-    // 6. Save to DB with nested allowances and deductions
-    const salaryRecord = await prisma.salary.create({
-        data: {
-            month,
-            year,
-            workingDays,
-            // New snapshot fields required by the schema
-            basicSalary: employee.basicSalary,
-            salaryType: employee.salaryType,
-            allowanceTotal,
-            deductionTotal: extraDeductionTotal,
-            grossSalary: grossSalaryCalc,
-            totalDeduction: totalDeductionCalc,
-            basicPay,
-            employeeEPF,
-            employerEPF,
-            etfAmount,
-            employeeTaxAmount,
-            // Snapshot rates used for this calculation (legal compliance)
-            employeeEPFRate: new Decimal(employeeEPFRate),
-            employerEPFRate: new Decimal(employerEPFRate),
-            etfRate: new Decimal(etfRateValue),
-            taxConfigId: payrollConfig.id,
-            netSalary,
-            otHours,
-            otAmount: calculatedOtAmount,
-            salaryAdvance,
-            employeeId,
-            companyId,
-            allowances: {
-                create: allowances.map(a => ({ type: a.type, amount: a.amount }))
-            },
-            deductions: {
-                create: deductions.map(d => ({ type: d.type, amount: d.amount }))
+    // 4.5 Handle Loan Installments
+    // Find installments due in THIS month that are PENDING or PARTIAL
+    const pendingInstallments = await prisma.loanInstallment.findMany({
+        where: {
+            loan: { employeeId, companyId, deletedAt: null },
+            status: { in: ['PENDING', 'PARTIAL'] },
+            dueDate: {
+                gte: new Date(year, month - 1, 1),
+                lt: new Date(year, month, 1)
             }
         }
     });
 
-    return salaryRecord;
+    const loanDeductionTotal = pendingInstallments.reduce((sum, inst) => sum + (inst.amount - inst.paidAmount), 0);
+
+    // 5. Calculate Net Salary
+    // Net Salary = (Basic Pay + OT Amount + Allowances) - Employee EPF - PAYE Tax - Salary Advance - Custom Deductions - Loan Deductions
+    const totalDeductionCalc = employeeEPF + employeeTaxAmount + salaryAdvance + extraDeductionTotal + loanDeductionTotal;
+    const grossSalaryCalc = basicPay + calculatedOtAmount + allowanceTotal;
+    const netSalary = grossSalaryCalc - totalDeductionCalc;
+
+    // 6. Save to DB with nested allowances and deductions in a transaction
+    return await prisma.$transaction(async (tx) => {
+        const salaryRecord = await tx.salary.create({
+            data: {
+                month,
+                year,
+                workingDays,
+                basicSalary: employee.basicSalary,
+                salaryType: employee.salaryType,
+                allowanceTotal,
+                deductionTotal: extraDeductionTotal + loanDeductionTotal,
+                grossSalary: grossSalaryCalc,
+                totalDeduction: totalDeductionCalc,
+                basicPay,
+                employeeEPF,
+                employerEPF,
+                etfAmount,
+                employeeTaxAmount,
+                employeeEPFRate: new Decimal(employeeEPFRate),
+                employerEPFRate: new Decimal(employerEPFRate),
+                etfRate: new Decimal(etfRateValue),
+                taxConfigId: payrollConfig.id,
+                netSalary,
+                otHours,
+                otAmount: calculatedOtAmount,
+                salaryAdvance,
+                employeeId,
+                companyId,
+                allowances: {
+                    create: allowances.map(a => ({ type: a.type, amount: a.amount }))
+                },
+                deductions: {
+                    create: [
+                        ...deductions.map(d => ({ type: d.type, amount: d.amount })),
+                        ...pendingInstallments.map(inst => ({ type: `Loan Installment #${inst.installmentNumber}`, amount: inst.amount - inst.paidAmount }))
+                    ]
+                }
+            }
+        });
+
+        // Update Loan Installments status
+        if (pendingInstallments.length > 0) {
+            await tx.loanInstallment.updateMany({
+                where: { id: { in: pendingInstallments.map(i => i.id) } },
+                data: {
+                    status: 'PAID',
+                    paidAmount: { increment: 0 }, // We set it to full amount
+                    salaryId: salaryRecord.id,
+                    updatedAt: new Date()
+                }
+            });
+
+            // Since updateMany doesn't support setting field to another field's value easily in some prisma versions or logic,
+            // we'll loop if needed or just be careful. Actually, setting status to PAID and updating paidAmount individually is safer.
+            for (const inst of pendingInstallments) {
+                await tx.loanInstallment.update({
+                    where: { id: inst.id },
+                    data: {
+                        status: 'PAID',
+                        paidAmount: inst.amount,
+                        salaryId: salaryRecord.id,
+                        updatedAt: new Date()
+                    }
+                });
+            }
+        }
+
+        return salaryRecord;
+    });
 };
 
 const getSalaryHistory = async (companyId: string, employeeId?: string) => {
