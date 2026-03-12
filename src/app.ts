@@ -17,6 +17,8 @@ import payrollConfigRoutes from './routes/payroll-config.routes';
 import notificationRoutes from './routes/notification.routes';
 import paymentRoutes from './routes/payment.routes';
 import planRoutes from './routes/plan.routes';
+import employeeBankRoutes from './routes/employee-bank.routes';
+import loanRoutes from './routes/loan.routes';
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use('/api/v1/payroll-config', payrollConfigRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/plans', planRoutes);
+app.use('/api/v1/employee-bank', employeeBankRoutes);
+app.use('/api/v1/loans', loanRoutes);
 
 
 // Health Check
