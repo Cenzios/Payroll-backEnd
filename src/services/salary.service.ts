@@ -15,6 +15,7 @@ interface SalaryData {
     companyWorkingDays: number;
     allowances?: { type: string, amount: number }[];
     deductions?: { type: string, amount: number }[];
+    isLoanEnabled?: boolean;
 }
 
 const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
@@ -29,7 +30,8 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         isEpfEnabled = true,
         companyWorkingDays,
         allowances = [],
-        deductions = []
+        deductions = [],
+        isLoanEnabled = true
     } = data;
 
     // 1. Fetch Employee
@@ -109,7 +111,10 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
         }
     });
 
-    const loanDeductionTotal = pendingInstallments.reduce((sum, inst) => sum + (inst.amount - inst.paidAmount), 0);
+    // Only calculate loan deduction if loan is enabled
+    const loanDeductionTotal = isLoanEnabled
+        ? pendingInstallments.reduce((sum, inst) => sum + (inst.amount - inst.paidAmount), 0)
+        : 0;
 
     // 5. Calculate Net Salary
     // Net Salary = (Basic Pay + OT Amount + Allowances) - Employee EPF - PAYE Tax - Salary Advance - Custom Deductions - Loan Deductions
@@ -130,6 +135,7 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
                 deductionTotal: extraDeductionTotal + loanDeductionTotal,
                 grossSalary: grossSalaryCalc,
                 totalDeduction: totalDeductionCalc,
+                loanDeduction: loanDeductionTotal,
                 basicPay,
                 employeeEPF,
                 employerEPF,
@@ -151,7 +157,10 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
                 deductions: {
                     create: [
                         ...deductions.map(d => ({ type: d.type, amount: d.amount })),
-                        ...pendingInstallments.map(inst => ({ type: `Loan Installment #${inst.installmentNumber}`, amount: inst.amount - inst.paidAmount }))
+                        ...(isLoanEnabled ? pendingInstallments.map(inst => ({
+                            type: `Loan Installment #${inst.installmentNumber}`,
+                            amount: inst.amount - inst.paidAmount
+                        })) : [])
                     ]
                 }
             }
@@ -159,25 +168,13 @@ const calculateAndSaveSalary = async (companyId: string, data: SalaryData) => {
 
         // Update Loan Installments status
         if (pendingInstallments.length > 0) {
-            await tx.loanInstallment.updateMany({
-                where: { id: { in: pendingInstallments.map(i => i.id) } },
-                data: {
-                    status: 'PAID',
-                    paidAmount: { increment: 0 }, // We set it to full amount
-                    salaryId: salaryRecord.id,
-                    updatedAt: new Date()
-                }
-            });
-
-            // Since updateMany doesn't support setting field to another field's value easily in some prisma versions or logic,
-            // we'll loop if needed or just be careful. Actually, setting status to PAID and updating paidAmount individually is safer.
             for (const inst of pendingInstallments) {
                 await tx.loanInstallment.update({
                     where: { id: inst.id },
                     data: {
-                        status: 'PAID',
-                        paidAmount: inst.amount,
-                        salaryId: salaryRecord.id,
+                        status: isLoanEnabled ? 'PAID' : 'SKIPPED',
+                        paidAmount: isLoanEnabled ? inst.amount : inst.paidAmount,
+                        salaryId: salaryRecord.id, // Link to salary even if skipped for tracking
                         updatedAt: new Date()
                     }
                 });
