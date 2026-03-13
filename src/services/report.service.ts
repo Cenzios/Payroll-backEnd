@@ -440,6 +440,7 @@ const getEmployeePayrollSummary = async (
             deductions: Math.round(deductions),
             employeeEPF: Math.round(salary.employeeEPF),
             companyEPFETF: Math.round(companyEPFETF),
+            loanDeduction: Math.round(salary.loanDeduction || 0),
             allowances: salary.allowances || [],
             customDeductions: salary.deductions || [],
         };

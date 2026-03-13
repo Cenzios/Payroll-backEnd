@@ -88,3 +88,38 @@ export const getLoanById = async (companyId: string, loanId: string) => {
         }
     });
 };
+export const getPendingInstallments = async (companyId: string, employeeId: string, month: number, year: number) => {
+    return await prisma.loanInstallment.findMany({
+        where: {
+            loan: { employeeId, companyId, deletedAt: null },
+            status: { in: ['PENDING', 'PARTIAL'] },
+            dueDate: {
+                gte: new Date(year, month - 1, 1),
+                lt: new Date(year, month, 1)
+            }
+        },
+        include: {
+            loan: {
+                select: { loanTitle: true }
+            }
+        }
+    });
+};
+
+export const getCompanyPendingInstallments = async (companyId: string, month: number, year: number) => {
+    return await prisma.loanInstallment.findMany({
+        where: {
+            loan: { companyId, deletedAt: null },
+            status: { in: ['PENDING', 'PARTIAL'] },
+            dueDate: {
+                gte: new Date(year, month - 1, 1),
+                lt: new Date(year, month, 1)
+            }
+        },
+        include: {
+            loan: {
+                select: { id: true, employeeId: true, loanTitle: true }
+            }
+        }
+    });
+};

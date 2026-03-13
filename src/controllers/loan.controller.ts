@@ -31,3 +31,43 @@ export const getLoanById = async (req: Request, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+export const getPendingInstallments = async (req: Request, res: Response) => {
+    try {
+        const { companyId, employeeId, month, year } = req.query;
+
+        if (!companyId || !employeeId || !month || !year) {
+            return res.status(400).json({ message: 'Missing required parameters' });
+        }
+
+        const installments = await loanService.getPendingInstallments(
+            companyId as string,
+            employeeId as string,
+            parseInt(month as string),
+            parseInt(year as string)
+        );
+
+        res.json(installments);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getCompanyPendingInstallments = async (req: Request, res: Response) => {
+    try {
+        const { companyId, month, year } = req.query;
+
+        if (!companyId || !month || !year) {
+            return res.status(400).json({ message: 'Missing required parameters' });
+        }
+
+        const installments = await loanService.getCompanyPendingInstallments(
+            companyId as string,
+            parseInt(month as string),
+            parseInt(year as string)
+        );
+
+        res.json(installments);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
