@@ -235,6 +235,7 @@ model Salary {
   deductionTotal Float @default(0) @map("deduction_total")
   grossSalary    Float @map("gross_salary")
   totalDeduction Float @map("total_deduction")
+  loanDeduction  Float @default(0) @map("loan_deduction")
 
   // Tax (PAYE)
   employeeTaxAmount Float @default(0) @map("employee_tax_amount")
